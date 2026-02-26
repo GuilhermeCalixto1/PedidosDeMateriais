@@ -9,15 +9,17 @@ export interface Pedido {
   solicitanteId: string;
   dataPedido: string;
   status: 'pendente' | 'aprovado' | 'rejeitado';
+  entregue: boolean;
 }
 
 interface PedidosContextType {
   pedidos: Pedido[];
-  adicionarPedido: (pedido: Omit<Pedido, 'id' | 'dataPedido' | 'status'>) => void;
+  adicionarPedido: (pedido: Omit<Pedido, 'id' | 'dataPedido' | 'status' | 'entregue'>) => void;
   atualizarPedido: (id: string, pedido: Partial<Pedido>) => void;
   excluirPedido: (id: string) => void;
   aprovarPedido: (id: string) => void;
   rejeitarPedido: (id: string) => void;
+  marcarComoEntregue: (id: string) => void;
 }
 
 const PedidosContext = createContext<PedidosContextType | undefined>(undefined);
@@ -42,6 +44,7 @@ export function PedidosProvider({ children }: { children: React.ReactNode }) {
           solicitanteId: '1',
           dataPedido: '2026-02-20',
           status: 'pendente',
+          entregue: false,
         },
         {
           id: '2',
@@ -52,6 +55,7 @@ export function PedidosProvider({ children }: { children: React.ReactNode }) {
           solicitanteId: '2',
           dataPedido: '2026-02-22',
           status: 'pendente',
+          entregue: false,
         },
       ];
       setPedidos(pedidosIniciais);
@@ -64,12 +68,13 @@ export function PedidosProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('pedidos', JSON.stringify(novosPedidos));
   };
 
-  const adicionarPedido = (pedido: Omit<Pedido, 'id' | 'dataPedido' | 'status'>) => {
+  const adicionarPedido = (pedido: Omit<Pedido, 'id' | 'dataPedido' | 'status' | 'entregue'>) => {
     const novoPedido: Pedido = {
       ...pedido,
       id: Date.now().toString(),
       dataPedido: new Date().toISOString().split('T')[0],
       status: 'pendente',
+      entregue: false,
     };
     salvarPedidos([...pedidos, novoPedido]);
   };
@@ -94,6 +99,10 @@ export function PedidosProvider({ children }: { children: React.ReactNode }) {
     atualizarPedido(id, { status: 'rejeitado' });
   };
 
+  const marcarComoEntregue = (id: string) => {
+    atualizarPedido(id, { entregue: true });
+  };
+
   return (
     <PedidosContext.Provider value={{
       pedidos,
@@ -102,6 +111,7 @@ export function PedidosProvider({ children }: { children: React.ReactNode }) {
       excluirPedido,
       aprovarPedido,
       rejeitarPedido,
+      marcarComoEntregue,
     }}>
       {children}
     </PedidosContext.Provider>

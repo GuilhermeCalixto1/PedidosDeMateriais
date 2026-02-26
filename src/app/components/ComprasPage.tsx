@@ -5,25 +5,39 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { LogOut, Package, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { LogOut, Package, CheckCircle, XCircle, Clock, Truck } from 'lucide-react';
 import type { Pedido } from '../contexts/PedidosContext';
 
 export function ComprasPage() {
   const { user, logout } = useAuth();
-  const { pedidos, aprovarPedido, rejeitarPedido } = usePedidos();
-  const [filtro, setFiltro] = useState<'todos' | 'pendente' | 'aprovado' | 'rejeitado'>('todos');
+  const { pedidos, aprovarPedido, rejeitarPedido, marcarComoEntregue } = usePedidos();
+  const [filtro, setFiltro] = useState<'todos' | 'pendente' | 'aprovado' | 'aprovado-nao-entregue' | 'aprovado-entregue' | 'rejeitado'>('todos');
 
-  const pedidosFiltrados = filtro === 'todos' 
-    ? pedidos 
-    : pedidos.filter(p => p.status === filtro);
+  const pedidosFiltrados = (() => {
+    if (filtro === 'todos') return pedidos;
+    if (filtro === 'aprovado-nao-entregue') return pedidos.filter(p => p.status === 'aprovado' && !p.entregue);
+    if (filtro === 'aprovado-entregue') return pedidos.filter(p => p.status === 'aprovado' && p.entregue);
+    if (filtro === 'aprovado') return pedidos.filter(p => p.status === 'aprovado');
+    return pedidos.filter(p => p.status === filtro);
+  })();
 
   const contadores = {
     pendente: pedidos.filter(p => p.status === 'pendente').length,
     aprovado: pedidos.filter(p => p.status === 'aprovado').length,
+    aprovadoNaoEntregue: pedidos.filter(p => p.status === 'aprovado' && !p.entregue).length,
+    aprovadoEntregue: pedidos.filter(p => p.status === 'aprovado' && p.entregue).length,
     rejeitado: pedidos.filter(p => p.status === 'rejeitado').length,
   };
 
-  const getStatusBadge = (status: Pedido['status']) => {
+  const getStatusBadge = (pedido: Pedido) => {
+    if (pedido.status === 'aprovado' && pedido.entregue) {
+      return (
+        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+          Entregue
+        </Badge>
+      );
+    }
+
     const variants = {
       pendente: 'default',
       aprovado: 'default',
@@ -43,8 +57,8 @@ export function ComprasPage() {
     };
 
     return (
-      <Badge variant={variants[status]} className={colors[status]}>
-        {labels[status]}
+      <Badge variant={variants[pedido.status]} className={colors[pedido.status]}>
+        {labels[pedido.status]}
       </Badge>
     );
   };
@@ -82,7 +96,7 @@ export function ComprasPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -103,6 +117,20 @@ export function ComprasPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl">{contadores.aprovado}</div>
+              <p className="text-xs text-gray-500 mt-1">
+                {contadores.aprovadoNaoEntregue} aguardando entrega
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardDescription>Entregues</CardDescription>
+                <Truck className="size-4 text-blue-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl">{contadores.aprovadoEntregue}</div>
             </CardContent>
           </Card>
           <Card>
@@ -123,7 +151,8 @@ export function ComprasPage() {
           <TabsList className="mb-4">
             <TabsTrigger value="todos">Todos ({pedidos.length})</TabsTrigger>
             <TabsTrigger value="pendente">Pendentes ({contadores.pendente})</TabsTrigger>
-            <TabsTrigger value="aprovado">Aprovados ({contadores.aprovado})</TabsTrigger>
+            <TabsTrigger value="aprovado-nao-entregue">Aguardando Entrega ({contadores.aprovadoNaoEntregue})</TabsTrigger>
+            <TabsTrigger value="aprovado-entregue">Entregues ({contadores.aprovadoEntregue})</TabsTrigger>
             <TabsTrigger value="rejeitado">Rejeitados ({contadores.rejeitado})</TabsTrigger>
           </TabsList>
 
@@ -147,7 +176,7 @@ export function ComprasPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <CardTitle>{pedido.material}</CardTitle>
-                            {getStatusBadge(pedido.status)}
+                            {getStatusBadge(pedido)}
                           </div>
                           <CardDescription>
                             Quantidade: {pedido.quantidade} • Solicitado por: {pedido.solicitante} • {new Date(pedido.dataPedido).toLocaleDateString('pt-BR')}
@@ -172,6 +201,19 @@ export function ComprasPage() {
                             >
                               <XCircle className="size-4 mr-1" />
                               Rejeitar
+                            </Button>
+                          </div>
+                        )}
+                        {pedido.status === 'aprovado' && !pedido.entregue && (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => marcarComoEntregue(pedido.id)}
+                              className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                            >
+                              <Truck className="size-4 mr-1" />
+                              Marcar como Entregue
                             </Button>
                           </div>
                         )}

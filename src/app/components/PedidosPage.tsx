@@ -32,7 +32,15 @@ export function PedidosPage() {
     setPedidoEditando(null);
   };
 
-  const getStatusBadge = (status: Pedido['status']) => {
+  const getStatusBadge = (pedido: Pedido) => {
+    if (pedido.status === 'aprovado' && pedido.entregue) {
+      return (
+        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+          Entregue
+        </Badge>
+      );
+    }
+
     const variants = {
       pendente: 'default',
       aprovado: 'default',
@@ -52,8 +60,8 @@ export function PedidosPage() {
     };
 
     return (
-      <Badge variant={variants[status]} className={colors[status]}>
-        {labels[status]}
+      <Badge variant={variants[pedido.status]} className={colors[pedido.status]}>
+        {labels[pedido.status]}
       </Badge>
     );
   };
@@ -128,7 +136,7 @@ export function PedidosPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <CardTitle>{pedido.material}</CardTitle>
-                        {getStatusBadge(pedido.status)}
+                        {getStatusBadge(pedido)}
                       </div>
                       <CardDescription>
                         Quantidade: {pedido.quantidade} • Pedido em: {new Date(pedido.dataPedido).toLocaleDateString('pt-BR')}
