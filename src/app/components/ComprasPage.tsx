@@ -5,25 +5,38 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { LogOut, Package, CheckCircle, XCircle, Clock, Truck } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { LogOut, Package, CheckCircle, XCircle, Clock, Truck, Zap, Wrench } from 'lucide-react';
 import type { Pedido } from '../contexts/PedidosContext';
 
 export function ComprasPage() {
   const { user, logout } = useAuth();
   const { pedidos, aprovarPedido, rejeitarPedido, marcarComoEntregue } = usePedidos();
-  const [filtro, setFiltro] = useState<'todos' | 'pendente' | 'aprovado' | 'aprovado-nao-entregue' | 'aprovado-entregue' | 'rejeitado'>('todos');
+  const [filtro, setFiltro] = useState<'todos' | 'pendente' | 'aprovado-nao-entregue' | 'aprovado-entregue' | 'rejeitado'>('todos');
+  const [filtroCategoria, setFiltroCategoria] = useState<'todas' | 'eletrico' | 'mecanico'>('todas');
 
   const pedidosFiltrados = (() => {
-    if (filtro === 'todos') return pedidos;
-    if (filtro === 'aprovado-nao-entregue') return pedidos.filter(p => p.status === 'aprovado' && !p.entregue);
-    if (filtro === 'aprovado-entregue') return pedidos.filter(p => p.status === 'aprovado' && p.entregue);
-    if (filtro === 'aprovado') return pedidos.filter(p => p.status === 'aprovado');
-    return pedidos.filter(p => p.status === filtro);
+    let resultado = pedidos;
+    
+    // Filtrar por status
+    if (filtro === 'aprovado-nao-entregue') {
+      resultado = resultado.filter(p => p.status === 'aprovado' && !p.entregue);
+    } else if (filtro === 'aprovado-entregue') {
+      resultado = resultado.filter(p => p.status === 'aprovado' && p.entregue);
+    } else if (filtro !== 'todos') {
+      resultado = resultado.filter(p => p.status === filtro);
+    }
+    
+    // Filtrar por categoria
+    if (filtroCategoria !== 'todas') {
+      resultado = resultado.filter(p => p.categoria === filtroCategoria);
+    }
+    
+    return resultado;
   })();
 
   const contadores = {
     pendente: pedidos.filter(p => p.status === 'pendente').length,
-    aprovado: pedidos.filter(p => p.status === 'aprovado').length,
     aprovadoNaoEntregue: pedidos.filter(p => p.status === 'aprovado' && !p.entregue).length,
     aprovadoEntregue: pedidos.filter(p => p.status === 'aprovado' && p.entregue).length,
     rejeitado: pedidos.filter(p => p.status === 'rejeitado').length,
@@ -59,6 +72,32 @@ export function ComprasPage() {
     return (
       <Badge variant={variants[pedido.status]} className={colors[pedido.status]}>
         {labels[pedido.status]}
+      </Badge>
+    );
+  };
+
+  const getCategoriaBadge = (categoria: 'eletrico' | 'mecanico') => {
+    const config = {
+      eletrico: {
+        icon: Zap,
+        label: 'Elétrico',
+        className: 'bg-purple-100 text-purple-800 hover:bg-purple-100',
+      },
+      mecanico: {
+        icon: Wrench,
+        label: 'Mecânico',
+        className: 'bg-orange-100 text-orange-800 hover:bg-orange-100',
+      },
+    };
+
+    // Fallback para categoria inválida ou undefined
+    const categoriaValida = categoria || 'mecanico';
+    const { icon: Icon, label, className } = config[categoriaValida];
+
+    return (
+      <Badge variant="outline" className={className}>
+        <Icon className="size-3 mr-1" />
+        {label}
       </Badge>
     );
   };
@@ -116,7 +155,7 @@ export function ComprasPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl">{contadores.aprovado}</div>
+              <div className="text-3xl">{contadores.aprovadoNaoEntregue + contadores.aprovadoEntregue}</div>
               <p className="text-xs text-gray-500 mt-1">
                 {contadores.aprovadoNaoEntregue} aguardando entrega
               </p>
@@ -148,13 +187,39 @@ export function ComprasPage() {
 
         {/* Tabs */}
         <Tabs value={filtro} onValueChange={(v) => setFiltro(v as typeof filtro)} className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="todos">Todos ({pedidos.length})</TabsTrigger>
-            <TabsTrigger value="pendente">Pendentes ({contadores.pendente})</TabsTrigger>
-            <TabsTrigger value="aprovado-nao-entregue">Aguardando Entrega ({contadores.aprovadoNaoEntregue})</TabsTrigger>
-            <TabsTrigger value="aprovado-entregue">Entregues ({contadores.aprovadoEntregue})</TabsTrigger>
-            <TabsTrigger value="rejeitado">Rejeitados ({contadores.rejeitado})</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <TabsList>
+              <TabsTrigger value="todos">Todos ({pedidos.length})</TabsTrigger>
+              <TabsTrigger value="pendente">Pendentes ({contadores.pendente})</TabsTrigger>
+              <TabsTrigger value="aprovado-nao-entregue">Aguardando Entrega ({contadores.aprovadoNaoEntregue})</TabsTrigger>
+              <TabsTrigger value="aprovado-entregue">Entregues ({contadores.aprovadoEntregue})</TabsTrigger>
+              <TabsTrigger value="rejeitado">Rejeitados ({contadores.rejeitado})</TabsTrigger>
+            </TabsList>
+
+            {/* Filtro de Categoria */}
+            <div className="w-full md:w-64">
+              <Select value={filtroCategoria} onValueChange={(v) => setFiltroCategoria(v as typeof filtroCategoria)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as Categorias</SelectItem>
+                  <SelectItem value="eletrico">
+                    <div className="flex items-center">
+                      <Zap className="size-4 mr-2 text-purple-600" />
+                      Elétrico
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="mecanico">
+                    <div className="flex items-center">
+                      <Wrench className="size-4 mr-2 text-orange-600" />
+                      Mecânico
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           <TabsContent value={filtro} className="mt-0">
             {pedidosFiltrados.length === 0 ? (
@@ -177,6 +242,7 @@ export function ComprasPage() {
                           <div className="flex items-center gap-3 mb-2">
                             <CardTitle>{pedido.material}</CardTitle>
                             {getStatusBadge(pedido)}
+                            {getCategoriaBadge(pedido.categoria)}
                           </div>
                           <CardDescription>
                             Quantidade: {pedido.quantidade} • Solicitado por: {pedido.solicitante} • {new Date(pedido.dataPedido).toLocaleDateString('pt-BR')}

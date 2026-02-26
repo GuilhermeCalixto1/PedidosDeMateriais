@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ArrowLeft } from 'lucide-react';
 import type { Pedido } from '../contexts/PedidosContext';
 
@@ -21,6 +22,7 @@ export function PedidoForm({ pedido, onFechar }: PedidoFormProps) {
   const [material, setMaterial] = useState(pedido?.material || '');
   const [quantidade, setQuantidade] = useState(pedido?.quantidade || 1);
   const [descricao, setDescricao] = useState(pedido?.descricao || '');
+  const [categoria, setCategoria] = useState<'eletrico' | 'mecanico'>(pedido?.categoria || 'mecanico');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +33,7 @@ export function PedidoForm({ pedido, onFechar }: PedidoFormProps) {
         material,
         quantidade,
         descricao,
+        categoria,
       });
     } else {
       // Criar novo pedido
@@ -38,6 +41,7 @@ export function PedidoForm({ pedido, onFechar }: PedidoFormProps) {
         material,
         quantidade,
         descricao,
+        categoria,
         solicitante: user!.nome,
         solicitanteId: user!.id,
       });
@@ -97,6 +101,22 @@ export function PedidoForm({ pedido, onFechar }: PedidoFormProps) {
                   onChange={(e) => setDescricao(e.target.value)}
                   rows={4}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="categoria">Categoria *</Label>
+                <Select
+                  value={categoria}
+                  onValueChange={(value) => setCategoria(value as 'eletrico' | 'mecanico')}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="eletrico">Elétrico</SelectItem>
+                    <SelectItem value="mecanico">Mecânico</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">

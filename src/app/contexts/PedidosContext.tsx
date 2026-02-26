@@ -5,6 +5,7 @@ export interface Pedido {
   material: string;
   quantidade: number;
   descricao: string;
+  categoria: 'eletrico' | 'mecanico';
   solicitante: string;
   solicitanteId: string;
   dataPedido: string;
@@ -31,7 +32,15 @@ export function PedidosProvider({ children }: { children: React.ReactNode }) {
     // Carregar pedidos do localStorage
     const savedPedidos = localStorage.getItem('pedidos');
     if (savedPedidos) {
-      setPedidos(JSON.parse(savedPedidos));
+      const loadedPedidos = JSON.parse(savedPedidos);
+      // Migrar pedidos antigos sem categoria e entregue
+      const migratedPedidos = loadedPedidos.map((p: any) => ({
+        ...p,
+        categoria: p.categoria || 'mecanico',
+        entregue: p.entregue || false,
+      }));
+      setPedidos(migratedPedidos);
+      localStorage.setItem('pedidos', JSON.stringify(migratedPedidos));
     } else {
       // Pedidos de exemplo
       const pedidosIniciais: Pedido[] = [
@@ -40,6 +49,7 @@ export function PedidosProvider({ children }: { children: React.ReactNode }) {
           material: 'Martelo',
           quantidade: 2,
           descricao: 'Martelo de unha para carpintaria',
+          categoria: 'mecanico',
           solicitante: 'João Silva',
           solicitanteId: '1',
           dataPedido: '2026-02-20',
@@ -51,6 +61,7 @@ export function PedidosProvider({ children }: { children: React.ReactNode }) {
           material: 'Chave de fenda',
           quantidade: 5,
           descricao: 'Jogo de chaves de fenda phillips',
+          categoria: 'mecanico',
           solicitante: 'Maria Santos',
           solicitanteId: '2',
           dataPedido: '2026-02-22',
