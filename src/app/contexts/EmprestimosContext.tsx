@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { supabase } from "../../../utils/supabase/supabaseClient";
 
 export interface Emprestimo {
   id: string;
@@ -20,12 +21,12 @@ interface EmprestimosContextType {
   emprestimos: Emprestimo[];
   adicionarEmprestimo: (
     emprestimo: Omit<Emprestimo, "id" | "dataRegistro" | "status">,
-  ) => void;
+  ) => Promise<void>;
   marcarComoDevolvido: (
     id: string,
     responsavelDevolucao: string,
     responsavelDevolucaoId: string,
-  ) => void;
+  ) => Promise<void>;
 }
 
 const EmprestimosContext = createContext<EmprestimosContextType | undefined>(
@@ -40,22 +41,21 @@ export function EmprestimosProvider({
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
 
   useEffect(() => {
-    // Carregar empréstimos do localStorage
-    const savedEmprestimos = localStorage.getItem("emprestimos");
-    if (savedEmprestimos) {
-      setEmprestimos(JSON.parse(savedEmprestimos));
-    } else {
-      // Começa com a lista vazia em vez de usar os dados de exemplo
-      setEmprestimos([]);
-    }
+    // Busca os dados diretamente da tabela 'emprestimos' no Supabase
+    const carregarEmprestimos = async () => {
+      const { data, error } = await supabase.from("emprestimos").select("*");
+
+      if (error) {
+        console.error("Erro ao buscar empréstimos:", error);
+      } else if (data) {
+        setEmprestimos(data as Emprestimo[]);
+      }
+    };
+
+    carregarEmprestimos();
   }, []);
 
-  const salvarEmprestimos = (novosEmprestimos: Emprestimo[]) => {
-    setEmprestimos(novosEmprestimos);
-    localStorage.setItem("emprestimos", JSON.stringify(novosEmprestimos));
-  };
-
-  const adicionarEmprestimo = (
+  const adicionarEmprestimo = async (
     emprestimo: Omit<Emprestimo, "id" | "dataRegistro" | "status">,
   ) => {
     const novoEmprestimo: Emprestimo = {
@@ -64,26 +64,46 @@ export function EmprestimosProvider({
       dataRegistro: new Date().toISOString(),
       status: "pendente",
     };
-    salvarEmprestimos([...emprestimos, novoEmprestimo]);
+
+    // Envia o novo empréstimo para o Supabase
+    const { error } = await supabase
+      .from("emprestimos")
+      .insert([novoEmprestimo]);
+
+    if (error) {
+      console.error("Erro ao inserir empréstimo:", error);
+    } else {
+      setEmprestimos([...emprestimos, novoEmprestimo]);
+    }
   };
 
-  const marcarComoDevolvido = (
+  const marcarComoDevolvido = async (
     id: string,
     responsavelDevolucao: string,
     responsavelDevolucaoId: string,
   ) => {
-    const emprestimosAtualizados = emprestimos.map((emp) =>
-      emp.id === id
-        ? {
-            ...emp,
-            status: "devolvido" as const,
-            dataDevolucao: new Date().toISOString(),
-            responsavelDevolucao,
-            responsavelDevolucaoId,
-          }
-        : emp,
-    );
-    salvarEmprestimos(emprestimosAtualizados);
+    const atualizacao = {
+      status: "devolvido",
+      dataDevolucao: new Date().toISOString(),
+      responsavelDevolucao,
+      responsavelDevolucaoId,
+    };
+
+    // Atualiza o status do empréstimo no Supabase
+    const { error } = await supabase
+      .from("emprestimos")
+      .update(atualizacao)
+      .eq("id", id);
+
+    if (error) {
+      console.error("Erro ao marcar devolução:", error);
+    } else {
+      setEmprestimos(
+        emprestimos.map((emp) =>
+          emp.id === id ? { ...emp, ...atualizacao } : emp,
+        ) as Emprestimo[],
+      );
+    }
   };
 
   return (
