@@ -18,12 +18,12 @@ interface PedidosContextType {
   pedidos: Pedido[];
   adicionarPedido: (
     pedido: Omit<Pedido, "id" | "dataPedido" | "status" | "entregue">,
-  ) => void;
-  atualizarPedido: (id: string, pedido: Partial<Pedido>) => void;
-  excluirPedido: (id: string) => void;
-  aprovarPedido: (id: string) => void;
-  rejeitarPedido: (id: string) => void;
-  marcarComoEntregue: (id: string) => void;
+  ) => Promise<void>;
+  atualizarPedido: (id: string, pedido: Partial<Pedido>) => Promise<void>;
+  excluirPedido: (id: string) => Promise<void>;
+  aprovarPedido: (id: string) => Promise<void>;
+  rejeitarPedido: (id: string) => Promise<void>;
+  marcarComoEntregue: (id: string) => Promise<void>;
 }
 
 const PedidosContext = createContext<PedidosContextType | undefined>(undefined);
@@ -45,11 +45,6 @@ export function PedidosProvider({ children }: { children: React.ReactNode }) {
 
     carregarPedidos();
   }, []);
-
-  const salvarPedidos = (novosPedidos: Pedido[]) => {
-    setPedidos(novosPedidos);
-    localStorage.setItem("pedidos", JSON.stringify(novosPedidos));
-  };
 
   const adicionarPedido = async (
     pedido: Omit<Pedido, "id" | "dataPedido" | "status" | "entregue">,
@@ -73,28 +68,48 @@ export function PedidosProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const atualizarPedido = (id: string, pedidoAtualizado: Partial<Pedido>) => {
-    const novosPedidos = pedidos.map((p) =>
-      p.id === id ? { ...p, ...pedidoAtualizado } : p,
-    );
-    salvarPedidos(novosPedidos);
+  const atualizarPedido = async (
+    id: string,
+    pedidoAtualizado: Partial<Pedido>,
+  ) => {
+    // Envia a atualização para o Supabase
+    const { error } = await supabase
+      .from("pedidos")
+      .update(pedidoAtualizado)
+      .eq("id", id); // O .eq() garante que vai atualizar só o pedido com este ID
+
+    if (error) {
+      console.error("Erro ao atualizar pedido:", error);
+    } else {
+      // Se deu certo no banco, atualiza a tela
+      setPedidos(
+        pedidos.map((p) => (p.id === id ? { ...p, ...pedidoAtualizado } : p)),
+      );
+    }
   };
 
-  const excluirPedido = (id: string) => {
-    const novosPedidos = pedidos.filter((p) => p.id !== id);
-    salvarPedidos(novosPedidos);
+  const excluirPedido = async (id: string) => {
+    // Deleta do Supabase
+    const { error } = await supabase.from("pedidos").delete().eq("id", id);
+
+    if (error) {
+      console.error("Erro ao excluir pedido:", error);
+    } else {
+      // Se deu certo no banco, remove da tela
+      setPedidos(pedidos.filter((p) => p.id !== id));
+    }
   };
 
-  const aprovarPedido = (id: string) => {
-    atualizarPedido(id, { status: "aprovado" });
+  const aprovarPedido = async (id: string) => {
+    await atualizarPedido(id, { status: "aprovado" });
   };
 
-  const rejeitarPedido = (id: string) => {
-    atualizarPedido(id, { status: "rejeitado" });
+  const rejeitarPedido = async (id: string) => {
+    await atualizarPedido(id, { status: "rejeitado" });
   };
 
-  const marcarComoEntregue = (id: string) => {
-    atualizarPedido(id, { entregue: true });
+  const marcarComoEntregue = async (id: string) => {
+    await atualizarPedido(id, { entregue: true });
   };
 
   return (
