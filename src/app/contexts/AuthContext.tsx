@@ -4,7 +4,6 @@ interface User {
   id: string;
   nome: string;
   email: string;
-  tipo: 'funcionario' | 'comprador';
 }
 
 interface AuthContextType {
@@ -18,9 +17,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Usuários de exemplo
 const usuariosMock = [
-  { id: '1', nome: 'João Silva', email: 'joao@empresa.com', senha: '123', tipo: 'funcionario' as const },
-  { id: '2', nome: 'Maria Santos', email: 'maria@empresa.com', senha: '123', tipo: 'funcionario' as const },
-  { id: '3', nome: 'Carlos Compras', email: 'compras@empresa.com', senha: '123', tipo: 'comprador' as const },
+  { id: '1', nome: 'João Silva', email: 'joao@empresa.com', senha: '123' },
+  { id: '2', nome: 'Maria Santos', email: 'maria@empresa.com', senha: '123' },
+  { id: '3', nome: 'Carlos Pereira', email: 'carlos@empresa.com', senha: '123' },
 ];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
