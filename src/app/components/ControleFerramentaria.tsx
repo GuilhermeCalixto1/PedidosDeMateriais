@@ -7,77 +7,69 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Plus, Package, CheckCircle, Clock, Search, Zap, Wrench, Calendar, Filter } from 'lucide-react';
+import { Plus, Package, CheckCircle, Clock, Search, Calendar, Filter, FileText } from 'lucide-react';
 import { FormularioSaida } from './FormularioSaida';
 
 export function ControleFerramentaria() {
   const { user } = useAuth();
   const { emprestimos, marcarComoDevolvido, carregando } = useEmprestimos();
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [abaAtiva, setAbaAtiva] = useState<'todos' | 'pendente' | 'devolvido'>('pendente');
+  const [abaAtiva, setAbaAtiva] = useState<'todos' | 'Pendente' | 'Devolvido'>('Pendente');
   const [processando, setProcessando] = useState(false);
   
   // Estados dos filtros
   const [buscaTexto, setBuscaTexto] = useState('');
   const [filtroData, setFiltroData] = useState('');
-  const [filtroCategoria, setFiltroCategoria] = useState<'todas' | 'mecanico' | 'eletrico'>('todas');
 
   // Aplicar todos os filtros de forma hierárquica
   const emprestimosFiltrados = useMemo(() => {
     let resultado = emprestimos;
 
-    // 1. Primeiro filtra pela aba (status)
-    if (abaAtiva === 'pendente') {
-      resultado = resultado.filter(e => e.status === 'pendente');
-    } else if (abaAtiva === 'devolvido') {
-      resultado = resultado.filter(e => e.status === 'devolvido');
+    // 1. Filtra pela aba (status - agora com Maiúscula)
+    if (abaAtiva === 'Pendente') {
+      resultado = resultado.filter(e => e.status === 'Pendente');
+    } else if (abaAtiva === 'Devolvido') {
+      resultado = resultado.filter(e => e.status === 'Devolvido');
     }
 
-    // 2. Depois aplica busca por texto (matrícula OU material OU nome do funcionário)
+    // 2. Busca por texto (usuario OU material_nome)
     if (buscaTexto.trim() !== '') {
       const termoBusca = buscaTexto.toLowerCase();
       resultado = resultado.filter(e => 
-        e.matricula.toLowerCase().includes(termoBusca) ||
-        e.materialSolicitado.toLowerCase().includes(termoBusca) ||
-        e.nomeFuncionario.toLowerCase().includes(termoBusca)
+        (e.usuario && e.usuario.toLowerCase().includes(termoBusca)) ||
+        (e.material_nome && e.material_nome.toLowerCase().includes(termoBusca))
       );
     }
 
-    // 3. Depois aplica filtro de data
+    // 3. Filtro de data
     if (filtroData !== '') {
-      resultado = resultado.filter(e => e.data === filtroData);
-    }
-
-    // 4. Por último aplica filtro de categoria
-    if (filtroCategoria !== 'todas') {
-      resultado = resultado.filter(e => e.categoria === filtroCategoria);
+      // Ajuste para pegar apenas a parte da data (YYYY-MM-DD)
+      resultado = resultado.filter(e => e.data_saida && e.data_saida.startsWith(filtroData));
     }
 
     return resultado;
-  }, [emprestimos, abaAtiva, buscaTexto, filtroData, filtroCategoria]);
+  }, [emprestimos, abaAtiva, buscaTexto, filtroData]);
 
   const contadores = useMemo(() => ({
     todos: emprestimos.length,
-    pendente: emprestimos.filter(e => e.status === 'pendente').length,
-    devolvido: emprestimos.filter(e => e.status === 'devolvido').length,
+    pendente: emprestimos.filter(e => e.status === 'Pendente').length,
+    devolvido: emprestimos.filter(e => e.status === 'Devolvido').length,
   }), [emprestimos]);
 
   const limparFiltros = () => {
     setBuscaTexto('');
     setFiltroData('');
-    setFiltroCategoria('todas');
   };
 
-  const handleMarcarDevolvido = (id: string) => {
+  // Ajustado: Passamos o objeto inteiro conforme esperado pelo novo Contexto
+  const handleMarcarDevolvido = async (emprestimo: any) => {
     setProcessando(true);
-    marcarComoDevolvido(id, user!.nome, user!.id).then(() => {
-      setProcessando(false);
-    });
+    await marcarComoDevolvido(emprestimo);
+    setProcessando(false);
   };
 
-  const getStatusBadge = (status: 'pendente' | 'devolvido') => {
-    if (status === 'pendente') {
+  const getStatusBadge = (status: 'Pendente' | 'Devolvido') => {
+    if (status === 'Pendente') {
       return (
         <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
           <Clock className="size-3 mr-1" />
@@ -89,23 +81,6 @@ export function ControleFerramentaria() {
       <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
         <CheckCircle className="size-3 mr-1" />
         Devolvido
-      </Badge>
-    );
-  };
-
-  const getCategoriaBadge = (categoria: 'mecanico' | 'eletrico') => {
-    if (categoria === 'eletrico') {
-      return (
-        <Badge variant="outline" className="bg-purple-100 text-purple-800 hover:bg-purple-100">
-          <Zap className="size-3 mr-1" />
-          Elétrico
-        </Badge>
-      );
-    }
-    return (
-      <Badge variant="outline" className="bg-orange-100 text-orange-800 hover:bg-orange-100">
-        <Wrench className="size-3 mr-1" />
-        Mecânico
       </Badge>
     );
   };
@@ -129,10 +104,10 @@ export function ControleFerramentaria() {
       {/* Tabs */}
       <Tabs value={abaAtiva} onValueChange={(v) => setAbaAtiva(v as typeof abaAtiva)} className="w-full">
         <TabsList className="mb-6">
-          <TabsTrigger value="pendente">
+          <TabsTrigger value="Pendente">
             Pendentes ({contadores.pendente})
           </TabsTrigger>
-          <TabsTrigger value="devolvido">
+          <TabsTrigger value="Devolvido">
             Devolvidos ({contadores.devolvido})
           </TabsTrigger>
           <TabsTrigger value="todos">
@@ -148,18 +123,18 @@ export function ControleFerramentaria() {
               <CardTitle className="text-lg">Filtros de Busca</CardTitle>
             </div>
             <CardDescription>
-              Todos os filtros atuam apenas nos itens da aba "{abaAtiva === 'pendente' ? 'Pendentes' : abaAtiva === 'devolvido' ? 'Devolvidos' : 'Todos'}"
+              Todos os filtros atuam apenas nos itens da aba atual
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="busca">Buscar por Matrícula ou Material</Label>
+                <Label htmlFor="busca">Buscar por Funcionário, Matrícula ou Material</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
                   <Input
                     id="busca"
-                    placeholder="Digite matrícula ou nome..."
+                    placeholder="Digite aqui..."
                     value={buscaTexto}
                     onChange={(e) => setBuscaTexto(e.target.value)}
                     className="pl-10"
@@ -168,7 +143,7 @@ export function ControleFerramentaria() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="data">Filtrar por Data</Label>
+                <Label htmlFor="data">Filtrar por Data de Saída</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
                   <Input
@@ -180,33 +155,9 @@ export function ControleFerramentaria() {
                   />
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="categoria">Filtrar por Categoria</Label>
-                <Select value={filtroCategoria} onValueChange={(v) => setFiltroCategoria(v as typeof filtroCategoria)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas as categorias" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Todas as Categorias</SelectItem>
-                    <SelectItem value="mecanico">
-                      <div className="flex items-center">
-                        <Wrench className="size-4 mr-2 text-orange-600" />
-                        Mecânico
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="eletrico">
-                      <div className="flex items-center">
-                        <Zap className="size-4 mr-2 text-purple-600" />
-                        Elétrico
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
-            {(buscaTexto !== '' || filtroData !== '' || filtroCategoria !== 'todas') && (
+            {(buscaTexto !== '' || filtroData !== '') && (
               <div className="mt-4 flex justify-end">
                 <Button variant="outline" size="sm" onClick={limparFiltros}>
                   Limpar Filtros
@@ -223,14 +174,9 @@ export function ControleFerramentaria() {
                 <Package className="size-12 mx-auto text-gray-400 mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Nenhum empréstimo encontrado</h3>
                 <p className="text-gray-600 mb-4">
-                  {buscaTexto || filtroData || filtroCategoria !== 'todas'
-                    ? 'Nenhum resultado encontrado com os filtros aplicados.'
-                    : abaAtiva === 'todos'
-                    ? 'Nenhum empréstimo registrado ainda.'
-                    : `Nenhum empréstimo ${abaAtiva === 'pendente' ? 'pendente' : 'devolvido'}.`
-                  }
+                  Nenhum resultado para exibir com os filtros atuais.
                 </p>
-                {(buscaTexto || filtroData || filtroCategoria !== 'todas') && (
+                {(buscaTexto || filtroData) && (
                   <Button variant="outline" onClick={limparFiltros}>
                     Limpar Filtros
                   </Button>
@@ -240,55 +186,48 @@ export function ControleFerramentaria() {
           ) : (
             <div className="grid gap-4">
               {emprestimosFiltrados.map((emprestimo) => (
-                <Card key={emprestimo.id} className={emprestimo.status === 'devolvido' ? 'bg-green-50/30' : ''}>
+                <Card key={emprestimo.id} className={emprestimo.status === 'Devolvido' ? 'bg-green-50/30' : ''}>
                   <CardHeader>
                     <div className="flex flex-col lg:flex-row justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-3 flex-wrap">
-                          <CardTitle className="text-lg">{emprestimo.materialSolicitado}</CardTitle>
+                          <CardTitle className="text-lg">{emprestimo.material_nome}</CardTitle>
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+                            {emprestimo.quantidade} unid.
+                          </Badge>
                           {getStatusBadge(emprestimo.status)}
-                          {getCategoriaBadge(emprestimo.categoria)}
                         </div>
                         
                         <div className="space-y-2 text-sm text-muted-foreground">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div>
-                              <span className="font-semibold text-gray-700">Funcionário:</span>{' '}
-                              <span className="text-gray-900">{emprestimo.nomeFuncionario}</span>
+                              <span className="font-semibold text-gray-700">Retirado por:</span>{' '}
+                              <span className="text-gray-900">{emprestimo.usuario}</span>
                             </div>
                             <div>
-                              <span className="font-semibold text-gray-700">Matrícula:</span>{' '}
-                              <span className="text-gray-900">{emprestimo.matricula}</span>
-                            </div>
-                            <div className="sm:col-span-2">
                               <span className="font-semibold text-gray-700">Data de Saída:</span>{' '}
-                              <span className="text-gray-900">{new Date(emprestimo.data).toLocaleDateString('pt-BR')}</span>
+                              <span className="text-gray-900">
+                                {emprestimo.data_saida ? new Date(emprestimo.data_saida).toLocaleDateString('pt-BR') : 'Sem data'}
+                              </span>
                             </div>
                           </div>
                           
-                          <div className="pt-2 border-t border-gray-200">
-                            <div className="font-semibold text-gray-700 mb-1">📦 Responsável pela Entrega:</div>
-                            <div className="text-gray-900">{emprestimo.responsavelEntrega}</div>
-                          </div>
-
-                          {emprestimo.status === 'devolvido' && emprestimo.responsavelDevolucao && (
-                            <div className="pt-2 border-t border-green-200">
-                              <div className="font-semibold text-green-700 mb-1">✅ Responsável por receber a devolução:</div>
-                              <div className="text-green-900">{emprestimo.responsavelDevolucao}</div>
-                              {emprestimo.dataDevolucao && (
-                                <div className="text-sm text-green-700 mt-1">
-                                  Devolvido em: {new Date(emprestimo.dataDevolucao).toLocaleDateString('pt-BR')} às {new Date(emprestimo.dataDevolucao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                </div>
-                              )}
+                          {/* Exibir a observação se ela existir no banco de dados */}
+                          {emprestimo.observacao && (
+                            <div className="pt-2 border-t border-gray-200 mt-3">
+                              <div className="font-semibold text-gray-700 mb-1 flex items-center">
+                                <FileText className="size-4 mr-1"/> Observação/Motivo:
+                              </div>
+                              <div className="text-gray-900 italic">"{emprestimo.observacao}"</div>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {emprestimo.status === 'pendente' && (
+                      {emprestimo.status === 'Pendente' && (
                         <div className="flex items-start">
                           <Button
-                            onClick={() => handleMarcarDevolvido(emprestimo.id)}
+                            onClick={() => handleMarcarDevolvido(emprestimo)}
                             size="lg"
                             className="bg-green-600 hover:bg-green-700 w-full lg:w-auto"
                             disabled={processando}
@@ -307,11 +246,12 @@ export function ControleFerramentaria() {
         </TabsContent>
       </Tabs>
 
+      {/* Resumo de itens exibidos */}
       {emprestimosFiltrados.length > 0 && (
         <div className="text-center text-sm text-gray-600">
           Exibindo {emprestimosFiltrados.length} de {
             abaAtiva === 'todos' ? contadores.todos : 
-            abaAtiva === 'pendente' ? contadores.pendente : 
+            abaAtiva === 'Pendente' ? contadores.pendente : 
             contadores.devolvido
           } {emprestimosFiltrados.length === 1 ? 'item' : 'itens'}
         </div>

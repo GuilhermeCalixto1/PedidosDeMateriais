@@ -19,7 +19,8 @@ interface FormularioSaidaProps {
 export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
   const { user } = useAuth();
   const { adicionarEmprestimo } = useEmprestimos();
-  const { materiais } = useMateriais();
+  // NOVA LINHA: Importamos a função de recarregar materiais
+  const { materiais, recarregarMateriais } = useMateriais();
   
   const [mostrarSeletorMaterial, setMostrarSeletorMaterial] = useState(true);
   const [materialSelecionado, setMaterialSelecionado] = useState<{
@@ -92,6 +93,9 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
         quantidade: qtd,
         observacao: observacao,
       });
+
+      // NOVA LINHA: Avisa a tela de materiais para buscar o estoque novo!
+      await recarregarMateriais();
 
       onFechar();
     } catch (error) {
