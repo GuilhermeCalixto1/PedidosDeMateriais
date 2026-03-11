@@ -1,27 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+// Importamos o cliente oficial que você já configurou
+import { supabase } from '../../../utils/supabase/supabaseClient';
 
 export interface Emprestimo {
   id: string;
-  materialSolicitado: string;
-  categoria: 'mecanico' | 'eletrico';
-  data: string;
-  nomeFuncionario: string;
-  matricula: string;
-  responsavelEntrega: string;
-  responsavelEntregaId: string;
-  status: 'pendente' | 'devolvido';
-  dataRegistro: string;
-  dataDevolucao?: string;
-  responsavelDevolucao?: string;
-  responsavelDevolucaoId?: string;
+  usuario: string; // Nome de quem retirou
+  material_nome: string;
+  quantidade: number;
+  status: 'Pendente' | 'Devolvido';
+  data_saida: string;
+  observacao?: string;
 }
 
 interface EmprestimosContextType {
   emprestimos: Emprestimo[];
   carregando: boolean;
-  adicionarEmprestimo: (emprestimo: Omit<Emprestimo, 'id' | 'dataRegistro' | 'status'>) => Promise<void>;
-  marcarComoDevolvido: (id: string, responsavelDevolucao: string, responsavelDevolucaoId: string) => Promise<void>;
+  adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status' | 'data_saida'>) => Promise<void>;
+  marcarComoDevolvido: (emprestimo: Emprestimo) => Promise<void>;
   recarregarEmprestimos: () => Promise<void>;
 }
 
@@ -31,94 +26,88 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
   const [carregando, setCarregando] = useState(true);
 
+  // 1. Carregar empréstimos diretamente do Banco de Dados
   const carregarEmprestimos = async () => {
     setCarregando(true);
     try {
-      console.log('Carregando empréstimos do servidor...');
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-e214d17d/emprestimos`,
-        {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-          },
-        }
-      );
+      const { data, error } = await supabase
+        .from('emprestimos')
+        .select('*')
+        .order('data_saida', { ascending: false });
 
-      if (!response.ok) {
-        throw new Error('Erro ao carregar empréstimos');
-      }
-
-      const data = await response.json();
-      console.log('Empréstimos carregados:', data.length);
-      setEmprestimos(data);
+      if (error) throw error;
+      setEmprestimos(data || []);
     } catch (error) {
       console.error('Erro ao carregar empréstimos:', error);
-      setEmprestimos([]);
     } finally {
       setCarregando(false);
     }
   };
 
-  const adicionarEmprestimo = async (emprestimo: Omit<Emprestimo, 'id' | 'dataRegistro' | 'status'>) => {
+  // 2. Adicionar nova saída e já baixar o estoque
+  const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status' | 'data_saida'>) => {
     try {
-      console.log('Adicionando empréstimo:', emprestimo);
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-e214d17d/emprestimos`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(emprestimo),
-        }
-      );
+      // Registrar o empréstimo
+      const { data: emprestimoCriado, error: errEmprestimo } = await supabase
+        .from('emprestimos')
+        .insert([{ 
+          ...novaSaida, 
+          status: 'Pendente' 
+        }])
+        .select()
+        .single();
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Erro na resposta:', errorData);
-        throw new Error('Erro ao adicionar empréstimo');
+      if (errEmprestimo) throw errEmprestimo;
+
+      // ATENÇÃO: Aqui fazemos a baixa no estoque automaticamente
+      const { data: materialData } = await supabase
+        .from('materiais')
+        .select('quantidade')
+        .eq('nome', novaSaida.material_nome)
+        .single();
+
+      if (materialData) {
+        await supabase
+          .from('materiais')
+          .update({ quantidade: materialData.quantidade - novaSaida.quantidade })
+          .eq('nome', novaSaida.material_nome);
       }
-
-      const novoEmprestimo = await response.json();
-      console.log('Empréstimo adicionado com sucesso:', novoEmprestimo);
 
       await carregarEmprestimos();
     } catch (error) {
-      console.error('Erro ao adicionar empréstimo:', error);
+      console.error('Erro ao registrar saída:', error);
       throw error;
     }
   };
 
-  const marcarComoDevolvido = async (id: string, responsavelDevolucao: string, responsavelDevolucaoId: string) => {
+  // 3. Marcar como devolvido e devolver o item ao estoque
+  const marcarComoDevolvido = async (emprestimo: Emprestimo) => {
     try {
-      console.log('Marcando empréstimo como devolvido:', { id, responsavelDevolucao, responsavelDevolucaoId });
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-e214d17d/emprestimos/${id}/devolver`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ responsavelDevolucao, responsavelDevolucaoId }),
-        }
-      );
+      // Atualizar status no banco
+      const { error: errUpdate } = await supabase
+        .from('emprestimos')
+        .update({ status: 'Devolvido' })
+        .eq('id', emprestimo.id);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Erro na resposta:', errorData);
-        throw new Error('Erro ao marcar como devolvido');
+      if (errUpdate) throw errUpdate;
+
+      // Buscar quantidade atual para somar a devolução
+      const { data: materialData } = await supabase
+        .from('materiais')
+        .select('quantidade')
+        .eq('nome', emprestimo.material_nome)
+        .single();
+
+      if (materialData) {
+        await supabase
+          .from('materiais')
+          .update({ quantidade: materialData.quantidade + emprestimo.quantidade })
+          .eq('nome', emprestimo.material_nome);
       }
-
-      const emprestimoAtualizado = await response.json();
-      console.log('Empréstimo marcado como devolvido:', emprestimoAtualizado);
 
       await carregarEmprestimos();
     } catch (error) {
-      console.error('Erro ao marcar empréstimo como devolvido:', error);
-      throw error;
+      console.error('Erro ao devolver material:', error);
     }
   };
 

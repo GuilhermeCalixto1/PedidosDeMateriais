@@ -1,18 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+// Importamos o cliente que já tem a sua URL e Chave Anon
+import { supabase } from '../../../utils/supabase/supabaseClient';
 
 export interface Material {
   id: string;
   nome: string;
   categoria: 'mecanico' | 'eletrico';
   quantidade: number;
-  dataRegistro: string;
+  data_registro?: string; // Ajustado para o padrão do banco (snake_case)
 }
 
 interface MateriaisContextType {
   materiais: Material[];
   carregando: boolean;
-  adicionarMaterial: (material: Omit<Material, 'id' | 'dataRegistro'>) => Promise<void>;
+  adicionarMaterial: (material: Omit<Material, 'id' | 'data_registro'>) => Promise<void>;
   atualizarQuantidade: (id: string, novaQuantidade: number) => Promise<void>;
   excluirMaterial: (id: string) => Promise<void>;
   recarregarMateriais: () => Promise<void>;
@@ -24,50 +25,32 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
   const [materiais, setMateriais] = useState<Material[]>([]);
   const [carregando, setCarregando] = useState(true);
 
+  // 1. Carregar materiais do Banco de Dados
   const carregarMateriais = async () => {
     setCarregando(true);
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-e214d17d/materiais`,
-        {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-          },
-        }
-      );
+      const { data, error } = await supabase
+        .from('materiais')
+        .select('*')
+        .order('nome', { ascending: true });
 
-      if (!response.ok) {
-        throw new Error('Erro ao carregar materiais');
-      }
-
-      const data = await response.json();
-      setMateriais(data);
+      if (error) throw error;
+      setMateriais(data || []);
     } catch (error) {
       console.error('Erro ao carregar materiais:', error);
-      setMateriais([]);
     } finally {
       setCarregando(false);
     }
   };
 
-  const adicionarMaterial = async (material: Omit<Material, 'id' | 'dataRegistro'>) => {
+  // 2. Adicionar novo material no banco
+  const adicionarMaterial = async (material: Omit<Material, 'id' | 'data_registro'>) => {
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-e214d17d/materiais`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(material),
-        }
-      );
+      const { error } = await supabase
+        .from('materiais')
+        .insert([material]);
 
-      if (!response.ok) {
-        throw new Error('Erro ao adicionar material');
-      }
-
+      if (error) throw error;
       await carregarMateriais();
     } catch (error) {
       console.error('Erro ao adicionar material:', error);
@@ -75,56 +58,32 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // 3. Atualizar a quantidade (usado no + / - e nas baixas de estoque)
   const atualizarQuantidade = async (id: string, novaQuantidade: number) => {
     try {
-      console.log('Atualizando quantidade - ID:', id, 'Nova quantidade:', novaQuantidade);
+      const { error } = await supabase
+        .from('materiais')
+        .update({ quantidade: novaQuantidade })
+        .eq('id', id);
+        
+      if (error) throw error;
       
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-e214d17d/materiais/${id}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ quantidade: novaQuantidade }),
-        }
-      );
-
-      console.log('Response status:', response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Erro na resposta:', errorData);
-        throw new Error(`Erro ao atualizar quantidade: ${JSON.stringify(errorData)}`);
-      }
-
-      const result = await response.json();
-      console.log('Material atualizado com sucesso:', result);
-      
-      await carregarMateriais();
+      // Atualiza o estado local para a UI refletir na hora
+      setMateriais(prev => prev.map(m => m.id === id ? { ...m, quantidade: novaQuantidade } : m));
     } catch (error) {
       console.error('Erro ao atualizar quantidade:', error);
-      throw error;
     }
   };
 
+  // 4. Excluir material do banco
   const excluirMaterial = async (id: string) => {
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-e214d17d/materiais/${id}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-          },
-        }
-      );
+      const { error } = await supabase
+        .from('materiais')
+        .delete()
+        .eq('id', id);
 
-      if (!response.ok) {
-        throw new Error('Erro ao excluir material');
-      }
-
+      if (error) throw error;
       await carregarMateriais();
     } catch (error) {
       console.error('Erro ao excluir material:', error);
