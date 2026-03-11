@@ -1,10 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-// Importamos o cliente oficial que você já configurou
 import { supabase } from '../../../utils/supabase/supabaseClient';
 
 export interface Emprestimo {
   id: string;
-  usuario: string; // Nome de quem retirou
+  usuario: string; 
   material_nome: string;
   quantidade: number;
   status: 'Pendente' | 'Devolvido';
@@ -15,7 +14,8 @@ export interface Emprestimo {
 interface EmprestimosContextType {
   emprestimos: Emprestimo[];
   carregando: boolean;
-  adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status' | 'data_saida'>) => Promise<void>;
+  // AQUI É A CORREÇÃO: Removemos o data_saida do Omit
+  adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status'>) => Promise<void>;
   marcarComoDevolvido: (emprestimo: Emprestimo) => Promise<void>;
   recarregarEmprestimos: () => Promise<void>;
 }
@@ -26,7 +26,6 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  // 1. Carregar empréstimos diretamente do Banco de Dados
   const carregarEmprestimos = async () => {
     setCarregando(true);
     try {
@@ -44,22 +43,17 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     }
   };
 
-  // 2. Adicionar nova saída e já baixar o estoque
-  const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status' | 'data_saida'>) => {
+  const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>) => {
     try {
-      // Registrar o empréstimo
-      const { data: emprestimoCriado, error: errEmprestimo } = await supabase
+      const { error: errEmprestimo } = await supabase
         .from('emprestimos')
         .insert([{ 
           ...novaSaida, 
           status: 'Pendente' 
-        }])
-        .select()
-        .single();
+        }]);
 
       if (errEmprestimo) throw errEmprestimo;
 
-      // ATENÇÃO: Aqui fazemos a baixa no estoque automaticamente
       const { data: materialData } = await supabase
         .from('materiais')
         .select('quantidade')
@@ -80,10 +74,8 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     }
   };
 
-  // 3. Marcar como devolvido e devolver o item ao estoque
   const marcarComoDevolvido = async (emprestimo: Emprestimo) => {
     try {
-      // Atualizar status no banco
       const { error: errUpdate } = await supabase
         .from('emprestimos')
         .update({ status: 'Devolvido' })
@@ -91,7 +83,6 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
 
       if (errUpdate) throw errUpdate;
 
-      // Buscar quantidade atual para somar a devolução
       const { data: materialData } = await supabase
         .from('materiais')
         .select('quantidade')

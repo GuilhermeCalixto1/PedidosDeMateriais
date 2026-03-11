@@ -19,7 +19,6 @@ interface FormularioSaidaProps {
 export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
   const { user } = useAuth();
   const { adicionarEmprestimo } = useEmprestimos();
-  // NOVA LINHA: Importamos a função de recarregar materiais
   const { materiais, recarregarMateriais } = useMateriais();
   
   const [mostrarSeletorMaterial, setMostrarSeletorMaterial] = useState(true);
@@ -35,6 +34,10 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
   const [nomeFuncionario, setNomeFuncionario] = useState('');
   const [matricula, setMatricula] = useState('');
   const [observacao, setObservacao] = useState('');
+  
+  // AQUI: Iniciamos a data com o dia de hoje
+  const [dataSaida, setDataSaida] = useState(() => new Date().toISOString().split('T')[0]);
+  
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
 
@@ -86,17 +89,22 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
       return;
     }
 
+    if (!dataSaida) {
+      setErro('A data de saída é obrigatória');
+      setEnviando(false);
+      return;
+    }
+
     try {
       await adicionarEmprestimo({
         usuario: `${nomeFuncionario} (Mat: ${matricula})`,
         material_nome: materialSelecionado.nome,
         quantidade: qtd,
         observacao: observacao,
+        data_saida: dataSaida, // AQUI: Enviamos a data escolhida para o banco
       });
 
-      // NOVA LINHA: Avisa a tela de materiais para buscar o estoque novo!
       await recarregarMateriais();
-
       onFechar();
     } catch (error) {
       console.error('Erro ao processar saída:', error);
@@ -200,7 +208,8 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* AQUI ESTÁ O CAMPO DE DATA ADICIONADO */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b pb-4">
                 <div className="space-y-2">
                   <Label htmlFor="quantidade">Quantidade *</Label>
                   <Input
@@ -212,13 +221,22 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
                     onChange={(e) => setQuantidadeRetirada(e.target.value)}
                     required
                   />
+                  <span className="text-xs text-gray-500 block">Máximo disponível: {materialSelecionado?.quantidadeDisponivel}</span>
                 </div>
-                <div className="space-y-2 text-right flex flex-col justify-end">
-                   <span className="text-sm text-gray-500">Máximo disponível: {materialSelecionado?.quantidadeDisponivel}</span>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="dataSaida">Data da Saída *</Label>
+                  <Input 
+                    id="dataSaida" 
+                    type="date" 
+                    value={dataSaida} 
+                    onChange={(e) => setDataSaida(e.target.value)} 
+                    required 
+                  />
                 </div>
               </div>
 
-              <div className="space-y-4 border-t pt-4">
+              <div className="space-y-4 pt-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="nomeFuncionario">Nome do Funcionário *</Label>
