@@ -13,9 +13,10 @@ import { FormularioSaida } from './FormularioSaida';
 
 export function ControleFerramentaria() {
   const { user } = useAuth();
-  const { emprestimos, marcarComoDevolvido } = useEmprestimos();
+  const { emprestimos, marcarComoDevolvido, carregando } = useEmprestimos();
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState<'todos' | 'pendente' | 'devolvido'>('pendente');
+  const [processando, setProcessando] = useState(false);
   
   // Estados dos filtros
   const [buscaTexto, setBuscaTexto] = useState('');
@@ -69,7 +70,10 @@ export function ControleFerramentaria() {
   };
 
   const handleMarcarDevolvido = (id: string) => {
-    marcarComoDevolvido(id, user!.nome, user!.id);
+    setProcessando(true);
+    marcarComoDevolvido(id, user!.nome, user!.id).then(() => {
+      setProcessando(false);
+    });
   };
 
   const getStatusBadge = (status: 'pendente' | 'devolvido') => {
@@ -287,6 +291,7 @@ export function ControleFerramentaria() {
                             onClick={() => handleMarcarDevolvido(emprestimo.id)}
                             size="lg"
                             className="bg-green-600 hover:bg-green-700 w-full lg:w-auto"
+                            disabled={processando}
                           >
                             <CheckCircle className="size-5 mr-2" />
                             Marcar como Devolvido

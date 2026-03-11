@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { projectId, publicAnonKey } from '/utils/supabase/info';
 
 export interface Emprestimo {
   id: string;
@@ -18,94 +19,123 @@ export interface Emprestimo {
 
 interface EmprestimosContextType {
   emprestimos: Emprestimo[];
-  adicionarEmprestimo: (emprestimo: Omit<Emprestimo, 'id' | 'dataRegistro' | 'status'>) => void;
-  marcarComoDevolvido: (id: string, responsavelDevolucao: string, responsavelDevolucaoId: string) => void;
+  carregando: boolean;
+  adicionarEmprestimo: (emprestimo: Omit<Emprestimo, 'id' | 'dataRegistro' | 'status'>) => Promise<void>;
+  marcarComoDevolvido: (id: string, responsavelDevolucao: string, responsavelDevolucaoId: string) => Promise<void>;
+  recarregarEmprestimos: () => Promise<void>;
 }
 
 const EmprestimosContext = createContext<EmprestimosContextType | undefined>(undefined);
 
 export function EmprestimosProvider({ children }: { children: React.ReactNode }) {
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  const carregarEmprestimos = async () => {
+    setCarregando(true);
+    try {
+      console.log('Carregando empréstimos do servidor...');
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-e214d17d/emprestimos`,
+        {
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Erro ao carregar empréstimos');
+      }
+
+      const data = await response.json();
+      console.log('Empréstimos carregados:', data.length);
+      setEmprestimos(data);
+    } catch (error) {
+      console.error('Erro ao carregar empréstimos:', error);
+      setEmprestimos([]);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const adicionarEmprestimo = async (emprestimo: Omit<Emprestimo, 'id' | 'dataRegistro' | 'status'>) => {
+    try {
+      console.log('Adicionando empréstimo:', emprestimo);
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-e214d17d/emprestimos`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(emprestimo),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Erro na resposta:', errorData);
+        throw new Error('Erro ao adicionar empréstimo');
+      }
+
+      const novoEmprestimo = await response.json();
+      console.log('Empréstimo adicionado com sucesso:', novoEmprestimo);
+
+      await carregarEmprestimos();
+    } catch (error) {
+      console.error('Erro ao adicionar empréstimo:', error);
+      throw error;
+    }
+  };
+
+  const marcarComoDevolvido = async (id: string, responsavelDevolucao: string, responsavelDevolucaoId: string) => {
+    try {
+      console.log('Marcando empréstimo como devolvido:', { id, responsavelDevolucao, responsavelDevolucaoId });
+      
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-e214d17d/emprestimos/${id}/devolver`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ responsavelDevolucao, responsavelDevolucaoId }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Erro na resposta:', errorData);
+        throw new Error('Erro ao marcar como devolvido');
+      }
+
+      const emprestimoAtualizado = await response.json();
+      console.log('Empréstimo marcado como devolvido:', emprestimoAtualizado);
+
+      await carregarEmprestimos();
+    } catch (error) {
+      console.error('Erro ao marcar empréstimo como devolvido:', error);
+      throw error;
+    }
+  };
 
   useEffect(() => {
-    // Carregar empréstimos do localStorage
-    const savedEmprestimos = localStorage.getItem('emprestimos');
-    if (savedEmprestimos) {
-      setEmprestimos(JSON.parse(savedEmprestimos));
-    } else {
-      // Dados de exemplo
-      const emprestimosIniciais: Emprestimo[] = [
-        {
-          id: '1',
-          materialSolicitado: 'Furadeira Elétrica',
-          categoria: 'eletrico',
-          data: '2026-02-25',
-          nomeFuncionario: 'João Silva',
-          matricula: '1001',
-          responsavelEntrega: 'João Silva',
-          responsavelEntregaId: '1',
-          status: 'pendente',
-          dataRegistro: '2026-02-25T09:30:00',
-        },
-        {
-          id: '2',
-          materialSolicitado: 'Chave de Impacto',
-          categoria: 'mecanico',
-          data: '2026-02-26',
-          nomeFuncionario: 'Maria Santos',
-          matricula: '1002',
-          responsavelEntrega: 'Maria Santos',
-          responsavelEntregaId: '2',
-          status: 'pendente',
-          dataRegistro: '2026-02-26T10:15:00',
-        },
-        {
-          id: '3',
-          materialSolicitado: 'Multímetro Digital',
-          categoria: 'eletrico',
-          data: '2026-02-24',
-          nomeFuncionario: 'João Silva',
-          matricula: '1003',
-          responsavelEntrega: 'João Silva',
-          responsavelEntregaId: '1',
-          status: 'devolvido',
-          dataRegistro: '2026-02-24T14:20:00',
-          dataDevolucao: '2026-02-26T16:30:00',
-          responsavelDevolucao: 'Maria Santos',
-          responsavelDevolucaoId: '2',
-        },
-      ];
-      setEmprestimos(emprestimosIniciais);
-      localStorage.setItem('emprestimos', JSON.stringify(emprestimosIniciais));
-    }
+    carregarEmprestimos();
   }, []);
 
-  const salvarEmprestimos = (novosEmprestimos: Emprestimo[]) => {
-    setEmprestimos(novosEmprestimos);
-    localStorage.setItem('emprestimos', JSON.stringify(novosEmprestimos));
-  };
-
-  const adicionarEmprestimo = (emprestimo: Omit<Emprestimo, 'id' | 'dataRegistro' | 'status'>) => {
-    const novoEmprestimo: Emprestimo = {
-      ...emprestimo,
-      id: Date.now().toString(),
-      dataRegistro: new Date().toISOString(),
-      status: 'pendente',
-    };
-    salvarEmprestimos([...emprestimos, novoEmprestimo]);
-  };
-
-  const marcarComoDevolvido = (id: string, responsavelDevolucao: string, responsavelDevolucaoId: string) => {
-    const emprestimosAtualizados = emprestimos.map(emp =>
-      emp.id === id
-        ? { ...emp, status: 'devolvido' as const, dataDevolucao: new Date().toISOString(), responsavelDevolucao, responsavelDevolucaoId }
-        : emp
-    );
-    salvarEmprestimos(emprestimosAtualizados);
-  };
-
   return (
-    <EmprestimosContext.Provider value={{ emprestimos, adicionarEmprestimo, marcarComoDevolvido }}>
+    <EmprestimosContext.Provider
+      value={{
+        emprestimos,
+        carregando,
+        adicionarEmprestimo,
+        marcarComoDevolvido,
+        recarregarEmprestimos: carregarEmprestimos,
+      }}
+    >
       {children}
     </EmprestimosContext.Provider>
   );

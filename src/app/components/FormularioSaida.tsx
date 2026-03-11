@@ -82,8 +82,12 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
     }
 
     try {
-      // Adicionar empréstimo
-      adicionarEmprestimo({
+      // Primeiro atualiza o estoque
+      const novaQuantidade = materialSelecionado.quantidadeDisponivel - qtd;
+      await atualizarQuantidade(materialSelecionado.id, novaQuantidade);
+
+      // Depois adiciona o empréstimo
+      await adicionarEmprestimo({
         materialSolicitado: `${materialSelecionado.nome} (${qtd} ${qtd === 1 ? 'unidade' : 'unidades'})`,
         categoria: materialSelecionado.categoria,
         data,
@@ -93,12 +97,9 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
         responsavelEntregaId: user!.id,
       });
 
-      // Atualizar estoque
-      const novaQuantidade = materialSelecionado.quantidadeDisponivel - qtd;
-      await atualizarQuantidade(materialSelecionado.id, novaQuantidade);
-
       onFechar();
     } catch (error) {
+      console.error('Erro ao processar saída:', error);
       setErro('Erro ao registrar saída. Tente novamente.');
     }
   };

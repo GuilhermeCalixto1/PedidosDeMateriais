@@ -121,4 +121,108 @@ app.delete("/make-server-e214d17d/materiais/:id", async (c) => {
   }
 });
 
+// ==================== ROTAS DE EMPRÉSTIMOS ====================
+
+// GET todos os empréstimos
+app.get("/make-server-e214d17d/emprestimos", async (c) => {
+  try {
+    console.log("GET /emprestimos - Buscando empréstimos");
+    const emprestimos = await kv.getByPrefix("emprestimo:");
+    console.log("GET /emprestimos - Empréstimos encontrados:", emprestimos?.length || 0);
+    return c.json(emprestimos || []);
+  } catch (error) {
+    console.error("Erro ao buscar empréstimos:", error);
+    return c.json({ error: "Erro ao buscar empréstimos" }, 500);
+  }
+});
+
+// POST criar novo empréstimo
+app.post("/make-server-e214d17d/emprestimos", async (c) => {
+  try {
+    const body = await c.req.json();
+    console.log("POST /emprestimos - Body recebido:", body);
+    
+    const {
+      materialSolicitado,
+      categoria,
+      data,
+      nomeFuncionario,
+      matricula,
+      responsavelEntrega,
+      responsavelEntregaId,
+    } = body;
+
+    if (!materialSolicitado || !categoria || !data || !nomeFuncionario || !matricula || !responsavelEntrega || !responsavelEntregaId) {
+      console.error("POST /emprestimos - Campos obrigatórios faltando");
+      return c.json({ error: "Campos obrigatórios faltando" }, 400);
+    }
+
+    const id = `emprestimo:${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const emprestimo = {
+      id,
+      materialSolicitado,
+      categoria,
+      data,
+      nomeFuncionario,
+      matricula,
+      responsavelEntrega,
+      responsavelEntregaId,
+      status: 'pendente',
+      dataRegistro: new Date().toISOString(),
+    };
+
+    console.log("POST /emprestimos - Salvando empréstimo:", emprestimo);
+    await kv.set(id, emprestimo);
+    console.log("POST /emprestimos - Empréstimo salvo com sucesso");
+    
+    return c.json(emprestimo, 201);
+  } catch (error) {
+    console.error("Erro ao criar empréstimo:", error);
+    return c.json({ error: "Erro ao criar empréstimo" }, 500);
+  }
+});
+
+// PATCH marcar empréstimo como devolvido
+app.patch("/make-server-e214d17d/emprestimos/:id/devolver", async (c) => {
+  try {
+    const id = c.req.param("id");
+    console.log("PATCH /emprestimos/:id/devolver - ID:", id);
+    
+    const body = await c.req.json();
+    console.log("PATCH /emprestimos/:id/devolver - Body:", body);
+    
+    const { responsavelDevolucao, responsavelDevolucaoId } = body;
+
+    if (!responsavelDevolucao || !responsavelDevolucaoId) {
+      console.error("PATCH /emprestimos/:id/devolver - Campos obrigatórios faltando");
+      return c.json({ error: "Campos obrigatórios: responsavelDevolucao, responsavelDevolucaoId" }, 400);
+    }
+
+    const emprestimo = await kv.get(id);
+    console.log("PATCH /emprestimos/:id/devolver - Empréstimo encontrado:", emprestimo);
+    
+    if (!emprestimo) {
+      console.error("PATCH /emprestimos/:id/devolver - Empréstimo não encontrado");
+      return c.json({ error: "Empréstimo não encontrado" }, 404);
+    }
+
+    const emprestimoAtualizado = {
+      ...emprestimo,
+      status: 'devolvido',
+      dataDevolucao: new Date().toISOString(),
+      responsavelDevolucao,
+      responsavelDevolucaoId,
+    };
+
+    console.log("PATCH /emprestimos/:id/devolver - Salvando empréstimo atualizado:", emprestimoAtualizado);
+    await kv.set(id, emprestimoAtualizado);
+    console.log("PATCH /emprestimos/:id/devolver - Empréstimo atualizado com sucesso");
+    
+    return c.json(emprestimoAtualizado);
+  } catch (error) {
+    console.error("Erro ao marcar empréstimo como devolvido:", error);
+    return c.json({ error: "Erro ao marcar empréstimo como devolvido" }, 500);
+  }
+});
+
 Deno.serve(app.fetch);
