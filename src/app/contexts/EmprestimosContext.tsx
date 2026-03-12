@@ -16,7 +16,6 @@ export interface Emprestimo {
 interface EmprestimosContextType {
   emprestimos: Emprestimo[];
   carregando: boolean;
-  // Remover 'material_categoria' do Omit, pois agora ela é obrigatória no Emprestimo
   adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => Promise<void>;
   marcarComoDevolvido: (emprestimo: Emprestimo) => Promise<void>;
   recarregarEmprestimos: () => Promise<void>;
@@ -33,6 +32,7 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     try {
       const { data, error } = await supabase
         .from('emprestimos')
+        // Garantimos que seja um select simples, sem tentar fazer JOIN (pois a categoria já está salva aqui)
         .select('*')
         .order('data_saida', { ascending: false });
 
@@ -45,16 +45,16 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     }
   };
 
-const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => {
+  const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => {
     try {
       const { error: errEmprestimo } = await supabase
         .from('emprestimos')
         .insert([{ 
           ...novaSaida,
           status: 'Pendente',
-          materialSolicitado: novaSaida.materialSolicitado, // Garante que o nome do material seja inserido
-          material_categoria: novaSaida.material_categoria, // Garante que a categoria seja inserida
-          gerencia: novaSaida.gerencia, // Garante que a gerência seja inserida
+          materialSolicitado: novaSaida.materialSolicitado, 
+          material_categoria: novaSaida.material_categoria, 
+          gerencia: novaSaida.gerencia, 
         }]);
 
       if (errEmprestimo) throw errEmprestimo;
@@ -66,7 +66,6 @@ const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>,
       if (materialId) {
         materialQuery.eq('id', materialId);
       } else {
-        // Se não tiver materialId, busca pelo nome do material solicitado
         materialQuery.ilike('nome', novaSaida.materialSolicitado);
       }
 
@@ -83,6 +82,12 @@ const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>,
       }
 
       await carregarEmprestimos();
+    // AQUI ESTAVA FALTANDO FECHAR A FUNÇÃO ANTERIORMENTE:
+    } catch (error) {
+      console.error('Erro ao registrar saída:', error);
+      throw error;
+    }
+  };
 
   const marcarComoDevolvido = async (emprestimo: Emprestimo) => {
     try {
@@ -96,7 +101,8 @@ const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>,
       const { data: materialData, error: errMaterial } = await supabase
         .from('materiais')
         .select('id, quantidade')
-        .ilike('nome', emprestimo.material_nome)
+        // Corrigido: Agora busca por materialSolicitado em vez do antigo material_nome
+        .ilike('nome', emprestimo.materialSolicitado)
         .maybeSingle();
 
       if (errMaterial) {

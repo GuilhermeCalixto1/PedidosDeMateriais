@@ -22,31 +22,18 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
   const { materiais, recarregarMateriais } = useMateriais();
   
   const [mostrarSeletorMaterial, setMostrarSeletorMaterial] = useState(true);
-  const [materialSelecionado, setMaterialSelecionado] = useState<{
-    id: string;
-    nome: string;
-    categoria: 'mecanico' | 'eletrico';
-    quantidadeDisponivel: number;
-  } | null>(null);
+  const [materialSelecionado, setMaterialSelecionado] = useState<{ id: string; nome: string; categoria: 'mecanico' | 'eletrico'; quantidadeDisponivel: number; } | null>(null);
   
   const [quantidadeRetirada, setQuantidadeRetirada] = useState('1');
   const [buscaMaterial, setBuscaMaterial] = useState('');
   const [nomeFuncionario, setNomeFuncionario] = useState('');
   const [matricula, setMatricula] = useState('');
-  const [gerencia, setGerencia] = useState(''); // Novo estado para Gerência
+  
+  // NOVO: Adicionamos o estado de gerência
+  const [gerencia, setGerencia] = useState('');
+  
   const [observacao, setObservacao] = useState('');
-  
-  const getDataHojeLocal = () => {
-    const hoje = new Date();
-    const yyyy = hoje.getFullYear();
-    const mm = String(hoje.getMonth() + 1).padStart(2, '0');
-    const dd = String(hoje.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
-  // AQUI: Iniciamos a data com o dia de hoje no fuso local (UTC-3 etc.)
-  const [dataSaida, setDataSaida] = useState(() => getDataHojeLocal());
-  
+  const [dataSaida, setDataSaida] = useState(() => new Date().toISOString().split('T')[0]);
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
 
@@ -58,12 +45,7 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
     });
 
   const handleSelecionarMaterial = (material: any) => {
-    setMaterialSelecionado({
-      id: material.id,
-      nome: material.nome,
-      categoria: material.categoria,
-      quantidadeDisponivel: material.quantidade,
-    });
+    setMaterialSelecionado({ id: material.id, nome: material.nome, categoria: material.categoria, quantidadeDisponivel: material.quantidade });
     setQuantidadeRetirada('1');
     setMostrarSeletorMaterial(false);
   };
@@ -98,21 +80,17 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
       return;
     }
 
-    if (!dataSaida) {
-      setErro('A data de saída é obrigatória');
-      setEnviando(false);
-      return;
-    }
-
     try {
+      // AQUI MUDOU: Agora enviamos os campos exatamente como o Contexto pediu!
       await adicionarEmprestimo({
         usuario: `${nomeFuncionario} (Mat: ${matricula})`,
-        material_nome: materialSelecionado.nome,
+        materialSolicitado: materialSelecionado.nome,
+        material_categoria: materialSelecionado.categoria,
+        gerencia: gerencia || 'Não informada',
         quantidade: qtd,
         observacao: observacao,
         data_saida: dataSaida,
-        gerencia: gerencia, // AQUI: Enviamos a gerência para o banco
-      }, materialSelecionado.id);
+      });
 
       await recarregarMateriais();
       onFechar();
@@ -125,18 +103,8 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
   };
 
   const getCategoriaBadge = (categoria: string) => {
-    if (categoria === 'eletrico') {
-      return (
-        <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
-          <Zap className="size-3 mr-1" /> Elétrico
-        </Badge>
-      );
-    }
-    return (
-      <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
-        <Wrench className="size-3 mr-1" /> Mecânico
-      </Badge>
-    );
+    if (categoria === 'eletrico') return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200"><Zap className="size-3 mr-1" /> Elétrico</Badge>;
+    return <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200"><Wrench className="size-3 mr-1" /> Mecânico</Badge>;
   };
 
   return (
@@ -146,13 +114,9 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
           <div className="flex justify-between items-start">
             <div>
               <CardTitle className="text-2xl">Registrar Saída</CardTitle>
-              <CardDescription>
-                {mostrarSeletorMaterial ? 'Passo 1: Selecione a ferramenta' : 'Passo 2: Dados do funcionário e quantidade'}
-              </CardDescription>
+              <CardDescription>{mostrarSeletorMaterial ? 'Passo 1: Selecione a ferramenta' : 'Passo 2: Dados do funcionário e quantidade'}</CardDescription>
             </div>
-            <Button variant="ghost" size="icon" onClick={onFechar}>
-              <X className="size-5" />
-            </Button>
+            <Button variant="ghost" size="icon" onClick={onFechar}><X className="size-5" /></Button>
           </div>
         </CardHeader>
         
@@ -161,38 +125,20 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
             <div className="space-y-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-                <Input
-                  placeholder="Buscar ferramenta no inventário..."
-                  value={buscaMaterial}
-                  onChange={(e) => setBuscaMaterial(e.target.value)}
-                  className="pl-10"
-                />
+                <Input placeholder="Buscar ferramenta no inventário..." value={buscaMaterial} onChange={(e) => setBuscaMaterial(e.target.value)} className="pl-10" />
               </div>
 
               <div className="border rounded-md overflow-hidden">
                 <Table>
                   <TableHeader className="bg-gray-50">
-                    <TableRow>
-                      <TableHead>Ferramenta</TableHead>
-                      <TableHead className="text-right">Estoque</TableHead>
-                      <TableHead className="text-right">Ação</TableHead>
-                    </TableRow>
+                    <TableRow><TableHead>Ferramenta</TableHead><TableHead className="text-right">Estoque</TableHead><TableHead className="text-right">Ação</TableHead></TableRow>
                   </TableHeader>
                   <TableBody>
                     {materiaisDisponiveis.map((m) => (
                       <TableRow key={m.id}>
-                        <TableCell>
-                          <div className="font-medium">{m.nome}</div>
-                          <div className="mt-1">{getCategoriaBadge(m.categoria)}</div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="font-bold text-blue-600">{m.quantidade}</span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button size="sm" onClick={() => handleSelecionarMaterial(m)}>
-                            Selecionar
-                          </Button>
-                        </TableCell>
+                        <TableCell><div className="font-medium">{m.nome}</div><div className="mt-1">{getCategoriaBadge(m.categoria)}</div></TableCell>
+                        <TableCell className="text-right"><span className="font-bold text-blue-600">{m.quantidade}</span></TableCell>
+                        <TableCell className="text-right"><Button size="sm" onClick={() => handleSelecionarMaterial(m)}>Selecionar</Button></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -201,102 +147,54 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
-              {erro && (
-                <Alert variant="destructive">
-                  <AlertCircle className="size-4" />
-                  <AlertDescription>{erro}</AlertDescription>
-                </Alert>
-              )}
+              {erro && <Alert variant="destructive"><AlertCircle className="size-4" /><AlertDescription>{erro}</AlertDescription></Alert>}
 
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center">
                 <div>
                   <Label className="text-xs text-blue-600 uppercase font-bold">Item Selecionado</Label>
                   <p className="text-lg font-bold text-blue-900">{materialSelecionado?.nome}</p>
                 </div>
-                <Button type="button" variant="link" onClick={handleVoltarSeletor} className="text-blue-600">
-                  Trocar item
-                </Button>
+                <Button type="button" variant="link" onClick={handleVoltarSeletor} className="text-blue-600">Trocar item</Button>
               </div>
 
-              {/* AQUI ESTÁ O CAMPO DE DATA ADICIONADO */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b pb-4">
                 <div className="space-y-2">
                   <Label htmlFor="quantidade">Quantidade *</Label>
-                  <Input
-                    id="quantidade"
-                    type="number"
-                    min="1"
-                    max={materialSelecionado?.quantidadeDisponivel}
-                    value={quantidadeRetirada}
-                    onChange={(e) => setQuantidadeRetirada(e.target.value)}
-                    required
-                  />
+                  <Input id="quantidade" type="number" min="1" max={materialSelecionado?.quantidadeDisponivel} value={quantidadeRetirada} onChange={(e) => setQuantidadeRetirada(e.target.value)} required />
                   <span className="text-xs text-gray-500 block">Máximo disponível: {materialSelecionado?.quantidadeDisponivel}</span>
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="dataSaida">Data da Saída *</Label>
-                  <Input 
-                    id="dataSaida" 
-                    type="date" 
-                    value={dataSaida} 
-                    onChange={(e) => setDataSaida(e.target.value)} 
-                    required 
-                  />
+                  <Input id="dataSaida" type="date" value={dataSaida} onChange={(e) => setDataSaida(e.target.value)} required />
                 </div>
               </div>
 
               <div className="space-y-4 pt-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="nomeFuncionario">Nome do Funcionário *</Label>
-                    <Input
-                      id="nomeFuncionario"
-                      placeholder="Quem está retirando?"
-                      value={nomeFuncionario}
-                      onChange={(e) => setNomeFuncionario(e.target.value)}
-                      required
-                    />
+                    <Label htmlFor="nomeFuncionario">Funcionário *</Label>
+                    <Input id="nomeFuncionario" placeholder="Quem está retirando?" value={nomeFuncionario} onChange={(e) => setNomeFuncionario(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="matricula">Matrícula *</Label>
-                    <Input
-                      id="matricula"
-                      placeholder="Ex: 1234"
-                      value={matricula}
-                      onChange={(e) => setMatricula(e.target.value)}
-                      required
-                    />
+                    <Input id="matricula" placeholder="Ex: 1234" value={matricula} onChange={(e) => setMatricula(e.target.value)} required />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="gerencia">Gerência *</Label>
-                  <Input
-                    id="gerencia"
-                    placeholder="Qual a gerência responsável?"
-                    value={gerencia}
-                    onChange={(e) => setGerencia(e.target.value)}
-                    required
-                  />
+                  {/* NOVO CAMPO: GERÊNCIA */}
+                  <div className="space-y-2">
+                    <Label htmlFor="gerencia">Gerência (Opcional)</Label>
+                    <Input id="gerencia" placeholder="Ex: Manutenção" value={gerencia} onChange={(e) => setGerencia(e.target.value)} />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="observacao">Observações / Motivo da Saída</Label>
-                  <Textarea
-                    id="observacao"
-                    placeholder="Alguma observação sobre o estado da ferramenta ou motivo da retirada?"
-                    value={observacao}
-                    onChange={(e) => setObservacao(e.target.value)}
-                    rows={3}
-                  />
+                  <Textarea id="observacao" placeholder="Alguma observação sobre o estado da ferramenta ou motivo da retirada?" value={observacao} onChange={(e) => setObservacao(e.target.value)} rows={3} />
                 </div>
               </div>
 
               <div className="flex gap-3 pt-2">
-                <Button type="button" variant="outline" onClick={handleVoltarSeletor} className="flex-1" disabled={enviando}>
-                  Voltar
-                </Button>
+                <Button type="button" variant="outline" onClick={handleVoltarSeletor} className="flex-1" disabled={enviando}>Voltar</Button>
                 <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white" disabled={enviando}>
                   {enviando ? 'Processando...' : 'Confirmar Saída'}
                 </Button>
