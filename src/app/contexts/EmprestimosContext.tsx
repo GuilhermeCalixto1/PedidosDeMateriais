@@ -4,8 +4,8 @@ import { supabase } from '../../../utils/supabase/supabaseClient';
 export interface Emprestimo {
   id: string;
   usuario: string; 
-  material_nome: string;
-  material_categoria: 'mecanico' | 'eletrico'; // Nova propriedade para categoria do material
+  materialSolicitado: string; // Renomeado de material_nome
+  material_categoria: 'mecanico' | 'eletrico'; // Categoria agora vem direto do empréstimo
   gerencia: string; // Nova propriedade para gerência
   quantidade: number;
   status: 'Pendente' | 'Devolvido';
@@ -16,7 +16,8 @@ export interface Emprestimo {
 interface EmprestimosContextType {
   emprestimos: Emprestimo[];
   carregando: boolean;
-  adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status' | 'material_categoria'> & { material_categoria: 'mecanico' | 'eletrico' }, materialId?: string) => Promise<void>;
+  // Remover 'material_categoria' do Omit, pois agora ela é obrigatória no Emprestimo
+  adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => Promise<void>;
   marcarComoDevolvido: (emprestimo: Emprestimo) => Promise<void>;
   recarregarEmprestimos: () => Promise<void>;
 }
@@ -32,18 +33,11 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     try {
       const { data, error } = await supabase
         .from('emprestimos')
-        .select(`
-          *,
-          materiais(categoria)
-        `)
+        .select('*')
         .order('data_saida', { ascending: false });
 
       if (error) throw error;
-      const emprestimosComCategoria: Emprestimo[] = data.map((emp: any) => ({
-        ...emp,
-        material_categoria: emp.materiais.categoria, // Mapeia a categoria do material
-      }));
-      setEmprestimos(emprestimosComCategoria || []);
+      setEmprestimos(data as Emprestimo[] || []);
     } catch (error) {
       console.error('Erro ao carregar empréstimos:', error);
     } finally {
@@ -51,13 +45,14 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     }
   };
 
-    const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status' | 'material_categoria'> & { material_categoria: 'mecanico' | 'eletrico' }, materialId?: string) => {
+const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => {
     try {
       const { error: errEmprestimo } = await supabase
         .from('emprestimos')
         .insert([{ 
           ...novaSaida,
           status: 'Pendente',
+          materialSolicitado: novaSaida.materialSolicitado, // Garante que o nome do material seja inserido
           material_categoria: novaSaida.material_categoria, // Garante que a categoria seja inserida
           gerencia: novaSaida.gerencia, // Garante que a gerência seja inserida
         }]);
@@ -71,7 +66,8 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
       if (materialId) {
         materialQuery.eq('id', materialId);
       } else {
-        materialQuery.ilike('nome', novaSaida.material_nome);
+        // Se não tiver materialId, busca pelo nome do material solicitado
+        materialQuery.ilike('nome', novaSaida.materialSolicitado);
       }
 
       const { data: materialData, error: errMaterial } = await materialQuery.maybeSingle();
@@ -87,11 +83,6 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
       }
 
       await carregarEmprestimos();
-    } catch (error) {
-      console.error('Erro ao registrar saída:', error);
-      throw error;
-    }
-  };
 
   const marcarComoDevolvido = async (emprestimo: Emprestimo) => {
     try {
