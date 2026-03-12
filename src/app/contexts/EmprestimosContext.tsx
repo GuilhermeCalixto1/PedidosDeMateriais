@@ -54,16 +54,17 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
 
       if (errEmprestimo) throw errEmprestimo;
 
-      const query = supabase
+      const materialQuery = supabase
         .from('materiais')
-        .select('id, quantidade')
-        .maybeSingle();
+        .select('id, quantidade');
 
-      const materialQuery = materialId
-        ? query.eq('id', materialId)
-        : query.ilike('nome', novaSaida.material_nome);
+      if (materialId) {
+        materialQuery.eq('id', materialId);
+      } else {
+        materialQuery.ilike('nome', novaSaida.material_nome);
+      }
 
-      const { data: materialData, error: errMaterial } = await materialQuery;
+      const { data: materialData, error: errMaterial } = await materialQuery.maybeSingle();
 
       if (errMaterial) {
         console.error('Erro ao buscar material para atualizar estoque:', errMaterial);
