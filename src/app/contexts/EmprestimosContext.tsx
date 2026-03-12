@@ -5,6 +5,8 @@ export interface Emprestimo {
   id: string;
   usuario: string; 
   material_nome: string;
+  material_categoria: 'mecanico' | 'eletrico'; // Nova propriedade para categoria do material
+  gerencia: string; // Nova propriedade para gerência
   quantidade: number;
   status: 'Pendente' | 'Devolvido';
   data_saida: string;
@@ -14,8 +16,7 @@ export interface Emprestimo {
 interface EmprestimosContextType {
   emprestimos: Emprestimo[];
   carregando: boolean;
-  // AQUI É A CORREÇÃO: Removemos o data_saida do Omit
-  adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => Promise<void>;
+  adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status' | 'material_categoria'> & { material_categoria: 'mecanico' | 'eletrico' }, materialId?: string) => Promise<void>;
   marcarComoDevolvido: (emprestimo: Emprestimo) => Promise<void>;
   recarregarEmprestimos: () => Promise<void>;
 }

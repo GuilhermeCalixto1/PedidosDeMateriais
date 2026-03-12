@@ -33,6 +33,7 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
   const [buscaMaterial, setBuscaMaterial] = useState('');
   const [nomeFuncionario, setNomeFuncionario] = useState('');
   const [matricula, setMatricula] = useState('');
+  const [gerencia, setGerencia] = useState(''); // Novo estado para Gerência
   const [observacao, setObservacao] = useState('');
   
   const getDataHojeLocal = () => {
@@ -109,7 +110,8 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
         material_nome: materialSelecionado.nome,
         quantidade: qtd,
         observacao: observacao,
-        data_saida: dataSaida, // AQUI: Enviamos a data escolhida para o banco
+        data_saida: dataSaida,
+        gerencia: gerencia, // AQUI: Enviamos a gerência para o banco
       }, materialSelecionado.id);
 
       await recarregarMateriais();
@@ -266,6 +268,17 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
                       required
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="gerencia">Gerência *</Label>
+                  <Input
+                    id="gerencia"
+                    placeholder="Qual a gerência responsável?"
+                    value={gerencia}
+                    onChange={(e) => setGerencia(e.target.value)}
+                    required
+                  />
                 </div>
 
                 <div className="space-y-2">
