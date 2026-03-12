@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useEmprestimos } from '../contexts/EmprestimosContext';
+// AQUI: Importamos o contexto dos materiais para podermos recarregar o estoque na tela
+import { useMateriais } from '../contexts/MateriaisContext'; 
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -13,6 +15,10 @@ import { FormularioSaida } from './FormularioSaida';
 export function ControleFerramentaria() {
   const { user } = useAuth();
   const { emprestimos, marcarComoDevolvido, carregando } = useEmprestimos();
+  
+  // AQUI: Puxamos a função que avisa a tela para atualizar
+  const { recarregarMateriais } = useMateriais();
+  
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState<'todos' | 'Pendente' | 'Devolvido'>('Pendente');
   const [processando, setProcessando] = useState(false);
@@ -34,7 +40,6 @@ export function ControleFerramentaria() {
       const termoBusca = buscaTexto.toLowerCase();
       resultado = resultado.filter(e => 
         (e.usuario && e.usuario.toLowerCase().includes(termoBusca)) ||
-        // AQUI ESTAVA O ERRO: mudamos para materialSolicitado
         (e.materialSolicitado && e.materialSolicitado.toLowerCase().includes(termoBusca)) 
       );
     }
@@ -77,6 +82,10 @@ export function ControleFerramentaria() {
   const handleMarcarDevolvido = async (emprestimo: any) => {
     setProcessando(true);
     await marcarComoDevolvido(emprestimo);
+    // AQUI: Logo após marcar como devolvido no banco, recarregamos a quantidade na tela
+    if (recarregarMateriais) {
+      await recarregarMateriais();
+    }
     setProcessando(false);
   };
 
@@ -178,7 +187,6 @@ export function ControleFerramentaria() {
                       <div className="flex flex-col lg:flex-row justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-3 flex-wrap">
-                            {/* AQUI MUDOU: materialSolicitado */}
                             <CardTitle className="text-lg">{emprestimo.materialSolicitado}</CardTitle>
                             <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
                               {emprestimo.quantidade} unid.
@@ -254,7 +262,6 @@ export function ControleFerramentaria() {
             ) : (
               pendentesParaImprimir.map((emprestimo, index) => (
                 <tr key={emprestimo.id} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                  {/* AQUI MUDOU: materialSolicitado */}
                   <td className="py-2 px-2 font-medium">{emprestimo.materialSolicitado}</td>
                   <td className="py-2 px-2 font-bold text-center">{emprestimo.quantidade}</td>
                   <td className="py-2 px-2">{emprestimo.usuario}</td>

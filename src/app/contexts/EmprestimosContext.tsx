@@ -4,9 +4,9 @@ import { supabase } from '../../../utils/supabase/supabaseClient';
 export interface Emprestimo {
   id: string;
   usuario: string; 
-  materialSolicitado: string; // Renomeado de material_nome
-  material_categoria: 'mecanico' | 'eletrico'; // Categoria agora vem direto do empréstimo
-  gerencia: string; // Nova propriedade para gerência
+  materialSolicitado: string;
+  material_categoria: 'mecanico' | 'eletrico';
+  gerencia: string;
   quantidade: number;
   status: 'Pendente' | 'Devolvido';
   data_saida: string;
@@ -32,7 +32,6 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     try {
       const { data, error } = await supabase
         .from('emprestimos')
-        // Garantimos que seja um select simples, sem tentar fazer JOIN (pois a categoria já está salva aqui)
         .select('*')
         .order('data_saida', { ascending: false });
 
@@ -74,7 +73,8 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
       if (errMaterial) {
         console.error('Erro ao buscar material para atualizar estoque:', errMaterial);
       } else if (materialData) {
-        const novaQnt = Math.max(0, materialData.quantidade - novaSaida.quantidade);
+        // GARANTIA: Usamos Number() para garantir que é matemática (ex: 5 - 1 = 4)
+        const novaQnt = Math.max(0, Number(materialData.quantidade) - Number(novaSaida.quantidade));
         await supabase
           .from('materiais')
           .update({ quantidade: novaQnt })
@@ -82,7 +82,6 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
       }
 
       await carregarEmprestimos();
-    // AQUI ESTAVA FALTANDO FECHAR A FUNÇÃO ANTERIORMENTE:
     } catch (error) {
       console.error('Erro ao registrar saída:', error);
       throw error;
@@ -101,14 +100,14 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
       const { data: materialData, error: errMaterial } = await supabase
         .from('materiais')
         .select('id, quantidade')
-        // Corrigido: Agora busca por materialSolicitado em vez do antigo material_nome
         .ilike('nome', emprestimo.materialSolicitado)
         .maybeSingle();
 
       if (errMaterial) {
         console.error('Erro ao buscar material para devolver:', errMaterial);
       } else if (materialData) {
-        const novaQnt = Math.max(0, materialData.quantidade + emprestimo.quantidade);
+        // GARANTIA: Usamos Number() para não juntar as strings (ex: evitar que 5 + 1 vire 51)
+        const novaQnt = Math.max(0, Number(materialData.quantidade) + Number(emprestimo.quantidade));
         await supabase
           .from('materiais')
           .update({ quantidade: novaQnt })
