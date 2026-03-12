@@ -35,8 +35,16 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
   const [matricula, setMatricula] = useState('');
   const [observacao, setObservacao] = useState('');
   
-  // AQUI: Iniciamos a data com o dia de hoje
-  const [dataSaida, setDataSaida] = useState(() => new Date().toISOString().split('T')[0]);
+  const getDataHojeLocal = () => {
+    const hoje = new Date();
+    const yyyy = hoje.getFullYear();
+    const mm = String(hoje.getMonth() + 1).padStart(2, '0');
+    const dd = String(hoje.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // AQUI: Iniciamos a data com o dia de hoje no fuso local (UTC-3 etc.)
+  const [dataSaida, setDataSaida] = useState(() => getDataHojeLocal());
   
   const [erro, setErro] = useState('');
   const [enviando, setEnviando] = useState(false);
