@@ -81,7 +81,7 @@ export function ControleFerramentaria() {
         <td>${e.usuario}</td>
         <td>${e.material_nome}</td>
         <td>${e.quantidade}</td>
-        <td>${e.data_saida ? new Date(e.data_saida).toLocaleDateString('pt-BR') : 'Sem data'}</td>
+        <td>${formatDataParaExibir(e.data_saida)}</td>
         <td>${e.observacao || ''}</td>
       </tr>
     `).join('');
@@ -130,6 +130,25 @@ export function ControleFerramentaria() {
     printWindow.print();
     // Nota: Não fechar automaticamente se o usuário cancelar pode ser melhor UX
     // printWindow.close();
+  };
+
+  const formatDataParaExibir = (data: string) => {
+    if (!data) return 'Sem data';
+
+    // Campo pode vir no formato date-only (YYYY-MM-DD) ou ISO completo.
+    const datePart = data.split('T')[0];
+    const [year, month, day] = datePart.split('-');
+
+    if (year && month && day) {
+      return `${day}/${month}/${year}`;
+    }
+
+    const parsed = new Date(data);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString('pt-BR');
+    }
+
+    return data;
   };
 
   const getStatusBadge = (status: 'Pendente' | 'Devolvido') => {
@@ -279,7 +298,7 @@ export function ControleFerramentaria() {
                             <div>
                               <span className="font-semibold text-gray-700">Data de Saída:</span>{' '}
                               <span className="text-gray-900">
-                                {emprestimo.data_saida ? new Date(emprestimo.data_saida).toLocaleDateString('pt-BR') : 'Sem data'}
+                                {formatDataParaExibir(emprestimo.data_saida)}
                               </span>
                             </div>
                           </div>
