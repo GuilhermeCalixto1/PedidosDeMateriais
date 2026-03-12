@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useEmprestimos } from '../contexts/EmprestimosContext';
+import { useMateriais } from '../contexts/MateriaisContext';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -13,6 +14,7 @@ import { FormularioSaida } from './FormularioSaida';
 export function ControleFerramentaria() {
   const { user } = useAuth();
   const { emprestimos, marcarComoDevolvido, carregando } = useEmprestimos();
+  const { recarregarMateriais } = useMateriais();
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState<'todos' | 'Pendente' | 'Devolvido'>('Pendente');
   const [processando, setProcessando] = useState(false);
@@ -65,6 +67,7 @@ export function ControleFerramentaria() {
   const handleMarcarDevolvido = async (emprestimo: any) => {
     setProcessando(true);
     await marcarComoDevolvido(emprestimo);
+    await recarregarMateriais();
     setProcessando(false);
   };
 

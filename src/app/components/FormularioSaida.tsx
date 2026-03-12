@@ -110,7 +110,7 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
         quantidade: qtd,
         observacao: observacao,
         data_saida: dataSaida, // AQUI: Enviamos a data escolhida para o banco
-      });
+      }, materialSelecionado.id);
 
       await recarregarMateriais();
       onFechar();

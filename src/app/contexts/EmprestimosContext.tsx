@@ -15,7 +15,7 @@ interface EmprestimosContextType {
   emprestimos: Emprestimo[];
   carregando: boolean;
   // AQUI É A CORREÇÃO: Removemos o data_saida do Omit
-  adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status'>) => Promise<void>;
+  adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => Promise<void>;
   marcarComoDevolvido: (emprestimo: Emprestimo) => Promise<void>;
   recarregarEmprestimos: () => Promise<void>;
 }
@@ -43,7 +43,7 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     }
   };
 
-  const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>) => {
+  const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => {
     try {
       const { error: errEmprestimo } = await supabase
         .from('emprestimos')
@@ -54,17 +54,25 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
 
       if (errEmprestimo) throw errEmprestimo;
 
-      const { data: materialData } = await supabase
+      const query = supabase
         .from('materiais')
-        .select('quantidade')
-        .eq('nome', novaSaida.material_nome)
-        .single();
+        .select('id, quantidade')
+        .maybeSingle();
 
-      if (materialData) {
+      const materialQuery = materialId
+        ? query.eq('id', materialId)
+        : query.ilike('nome', novaSaida.material_nome);
+
+      const { data: materialData, error: errMaterial } = await materialQuery;
+
+      if (errMaterial) {
+        console.error('Erro ao buscar material para atualizar estoque:', errMaterial);
+      } else if (materialData) {
+        const novaQnt = Math.max(0, materialData.quantidade - novaSaida.quantidade);
         await supabase
           .from('materiais')
-          .update({ quantidade: materialData.quantidade - novaSaida.quantidade })
-          .eq('nome', novaSaida.material_nome);
+          .update({ quantidade: novaQnt })
+          .eq('id', materialData.id);
       }
 
       await carregarEmprestimos();
@@ -83,17 +91,20 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
 
       if (errUpdate) throw errUpdate;
 
-      const { data: materialData } = await supabase
+      const { data: materialData, error: errMaterial } = await supabase
         .from('materiais')
-        .select('quantidade')
-        .eq('nome', emprestimo.material_nome)
-        .single();
+        .select('id, quantidade')
+        .ilike('nome', emprestimo.material_nome)
+        .maybeSingle();
 
-      if (materialData) {
+      if (errMaterial) {
+        console.error('Erro ao buscar material para devolver:', errMaterial);
+      } else if (materialData) {
+        const novaQnt = Math.max(0, materialData.quantidade + emprestimo.quantidade);
         await supabase
           .from('materiais')
-          .update({ quantidade: materialData.quantidade + emprestimo.quantidade })
-          .eq('nome', emprestimo.material_nome);
+          .update({ quantidade: novaQnt })
+          .eq('id', materialData.id);
       }
 
       await carregarEmprestimos();
