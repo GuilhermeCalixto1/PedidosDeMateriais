@@ -8,7 +8,7 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Plus, Package, CheckCircle, Clock, Search, Calendar, Filter, FileText, Printer } from 'lucide-react';
+import { Plus, Package, CheckCircle, Clock, Search, Calendar, Filter, FileText, Printer, Wrench, Zap } from 'lucide-react';
 import { FormularioSaida } from './FormularioSaida';
 
 export function ControleFerramentaria() {
@@ -18,6 +18,21 @@ export function ControleFerramentaria() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState<'todos' | 'Pendente' | 'Devolvido'>('Pendente');
   const [processando, setProcessando] = useState(false);
+
+  const getCategoriaBadge = (categoria: string) => {
+    if (categoria === 'eletrico') {
+      return (
+        <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
+          <Zap className="size-3 mr-1" /> Elétrico
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
+        <Wrench className="size-3 mr-1" /> Mecânico
+      </Badge>
+    );
+  };
   
   // Estados dos filtros
   const [buscaTexto, setBuscaTexto] = useState('');
@@ -319,6 +334,7 @@ export function ControleFerramentaria() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-3 flex-wrap">
                           <CardTitle className="text-lg">{emprestimo.material_nome}</CardTitle>
+                          {getCategoriaBadge(emprestimo.material_categoria)} {/* Exibe a categoria */}
                           <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
                             {emprestimo.quantidade} unid.
                           </Badge>
@@ -330,6 +346,10 @@ export function ControleFerramentaria() {
                             <div>
                               <span className="font-semibold text-gray-700">Retirado por:</span>{' '}
                               <span className="text-gray-900">{emprestimo.usuario}</span>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-gray-700">Gerência:</span>{' '}
+                              <span className="text-gray-900">{emprestimo.gerencia}</span>
                             </div>
                             <div>
                               <span className="font-semibold text-gray-700">Data de Saída:</span>{' '}

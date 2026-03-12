@@ -32,11 +32,18 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     try {
       const { data, error } = await supabase
         .from('emprestimos')
-        .select('*')
+        .select(`
+          *,
+          materiais(categoria)
+        `)
         .order('data_saida', { ascending: false });
 
       if (error) throw error;
-      setEmprestimos(data || []);
+      const emprestimosComCategoria: Emprestimo[] = data.map((emp: any) => ({
+        ...emp,
+        material_categoria: emp.materiais.categoria, // Mapeia a categoria do material
+      }));
+      setEmprestimos(emprestimosComCategoria || []);
     } catch (error) {
       console.error('Erro ao carregar empréstimos:', error);
     } finally {
@@ -44,13 +51,15 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     }
   };
 
-  const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => {
+    const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status' | 'material_categoria'> & { material_categoria: 'mecanico' | 'eletrico' }, materialId?: string) => {
     try {
       const { error: errEmprestimo } = await supabase
         .from('emprestimos')
         .insert([{ 
-          ...novaSaida, 
-          status: 'Pendente' 
+          ...novaSaida,
+          status: 'Pendente',
+          material_categoria: novaSaida.material_categoria, // Garante que a categoria seja inserida
+          gerencia: novaSaida.gerencia, // Garante que a gerência seja inserida
         }]);
 
       if (errEmprestimo) throw errEmprestimo;
