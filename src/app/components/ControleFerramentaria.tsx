@@ -21,7 +21,8 @@ export function ControleFerramentaria() {
   
   // Estados dos filtros
   const [buscaTexto, setBuscaTexto] = useState('');
-  const [filtroData, setFiltroData] = useState('');
+  const [filtroDataInicio, setFiltroDataInicio] = useState('');
+  const [filtroDataFim, setFiltroDataFim] = useState('');
 
   // Aplicar todos os filtros de forma hierárquica
   const emprestimosFiltrados = useMemo(() => {
@@ -43,14 +44,33 @@ export function ControleFerramentaria() {
       );
     }
 
-    // 3. Filtro de data
-    if (filtroData !== '') {
-      // Ajuste para pegar apenas a parte da data (YYYY-MM-DD)
-      resultado = resultado.filter(e => e.data_saida && e.data_saida.startsWith(filtroData));
+    // 3. Filtro de período de data de saída
+    if (filtroDataInicio !== '' || filtroDataFim !== '') {
+      resultado = resultado.filter(e => {
+        if (!e.data_saida) {
+          return false;
+        }
+
+        const dataBase = e.data_saida.split('T')[0];
+
+        if (filtroDataInicio !== '' && filtroDataFim !== '') {
+          return dataBase >= filtroDataInicio && dataBase <= filtroDataFim;
+        }
+
+        if (filtroDataInicio !== '') {
+          return dataBase === filtroDataInicio;
+        }
+
+        if (filtroDataFim !== '') {
+          return dataBase === filtroDataFim;
+        }
+
+        return true;
+      });
     }
 
     return resultado;
-  }, [emprestimos, abaAtiva, buscaTexto, filtroData]);
+  }, [emprestimos, abaAtiva, buscaTexto, filtroDataInicio, filtroDataFim]);
 
   const contadores = useMemo(() => ({
     todos: emprestimos.length,
@@ -60,7 +80,8 @@ export function ControleFerramentaria() {
 
   const limparFiltros = () => {
     setBuscaTexto('');
-    setFiltroData('');
+    setFiltroDataInicio('');
+    setFiltroDataFim('');
   };
 
   // Ajustado: Passamos o objeto inteiro conforme esperado pelo novo Contexto
@@ -237,21 +258,33 @@ export function ControleFerramentaria() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="data">Filtrar por Data de Saída</Label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
-                  <Input
-                    id="data"
-                    type="date"
-                    value={filtroData}
-                    onChange={(e) => setFiltroData(e.target.value)}
-                    className="pl-10"
-                  />
+                <Label htmlFor="dataInicio">Filtrar por Período de Saída</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
+                    <Input
+                      id="dataInicio"
+                      type="date"
+                      value={filtroDataInicio}
+                      onChange={(e) => setFiltroDataInicio(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="dataFim"
+                      type="date"
+                      value={filtroDataFim}
+                      onChange={(e) => setFiltroDataFim(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
+                <p className="text-xs text-gray-500">Selecionar apenas uma data retorna as saídas desse dia; usar intervalo retorna entre início e fim (inclusive).</p>
               </div>
             </div>
 
-            {(buscaTexto !== '' || filtroData !== '') && (
+            {(buscaTexto !== '' || filtroDataInicio !== '' || filtroDataFim !== '') && (
               <div className="mt-4 flex justify-end">
                 <Button variant="outline" size="sm" onClick={limparFiltros}>
                   Limpar Filtros
