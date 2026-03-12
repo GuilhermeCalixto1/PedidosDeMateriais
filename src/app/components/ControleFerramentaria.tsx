@@ -7,7 +7,7 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Plus, Package, CheckCircle, Clock, Search, Calendar, Filter, FileText } from 'lucide-react';
+import { Plus, Package, CheckCircle, Clock, Search, Calendar, Filter, FileText, Printer } from 'lucide-react';
 import { FormularioSaida } from './FormularioSaida';
 
 export function ControleFerramentaria() {
@@ -68,6 +68,70 @@ export function ControleFerramentaria() {
     setProcessando(false);
   };
 
+  const handleImprimirPendentes = () => {
+    const pendentes = emprestimosFiltrados.filter(e => e.status === 'Pendente');
+
+    if (pendentes.length === 0) {
+      alert('Não há saídas pendentes para imprimir.');
+      return;
+    }
+
+    const rows = pendentes.map((e) => `
+      <tr>
+        <td>${e.usuario}</td>
+        <td>${e.material_nome}</td>
+        <td>${e.quantidade}</td>
+        <td>${e.data_saida ? new Date(e.data_saida).toLocaleDateString('pt-BR') : 'Sem data'}</td>
+        <td>${e.observacao || ''}</td>
+      </tr>
+    `).join('');
+
+    const html = `
+      <html>
+      <head>
+        <title>Saídas Pendentes</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 1rem; }
+          h1 { font-size: 1.25rem; margin-bottom: 1rem; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background: #f5f5f5; }
+        </style>
+      </head>
+      <body>
+        <h1>Saídas Pendentes</h1>
+        <table>
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th>Material</th>
+              <th>Quantidade</th>
+              <th>Data de Saída</th>
+              <th>Observação</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      alert('Não foi possível abrir a janela de impressão. Verifique se bloqueadores de pop-up estão ativos.');
+      return;
+    }
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    // Nota: Não fechar automaticamente se o usuário cancelar pode ser melhor UX
+    // printWindow.close();
+  };
+
   const getStatusBadge = (status: 'Pendente' | 'Devolvido') => {
     if (status === 'Pendente') {
       return (
@@ -95,10 +159,18 @@ export function ControleFerramentaria() {
             Gerencie saídas e devoluções de materiais
           </p>
         </div>
-        <Button onClick={() => setMostrarFormulario(true)} size="lg" className="w-full md:w-auto">
-          <Plus className="size-5 mr-2" />
-          Nova Saída
-        </Button>
+        <div className="flex gap-2 w-full md:w-auto">
+          {abaAtiva === 'Pendente' && (
+            <Button variant="outline" size="lg" onClick={handleImprimirPendentes} className="w-full md:w-auto">
+              <Printer className="size-5 mr-2" />
+              Imprimir Pendentes
+            </Button>
+          )}
+          <Button onClick={() => setMostrarFormulario(true)} size="lg" className="w-full md:w-auto">
+            <Plus className="size-5 mr-2" />
+            Nova Saída
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
