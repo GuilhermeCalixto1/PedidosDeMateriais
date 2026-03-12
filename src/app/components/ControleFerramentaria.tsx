@@ -303,7 +303,7 @@ export function ControleFerramentaria() {
                 <p className="text-gray-600 mb-4">
                   Nenhum resultado para exibir com os filtros atuais.
                 </p>
-                {(buscaTexto || filtroData) && (
+                {(buscaTexto || filtroDataInicio || filtroDataFim) && (
                   <Button variant="outline" onClick={limparFiltros}>
                     Limpar Filtros
                   </Button>
