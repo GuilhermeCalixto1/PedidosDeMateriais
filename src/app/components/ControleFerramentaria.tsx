@@ -8,7 +8,6 @@ import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-// AQUI: Adicionamos o Zap (raio) e Wrench (chave) para os ícones de categoria
 import { Plus, Package, CheckCircle, Clock, Search, Calendar, Filter, FileText, Printer, Zap, Wrench } from 'lucide-react';
 import { FormularioSaida } from './FormularioSaida';
 
@@ -25,22 +24,24 @@ export function ControleFerramentaria() {
   const [buscaTexto, setBuscaTexto] = useState('');
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
-  
-  // NOVO: Estados para Gerência e Categoria
   const [filtroGerencia, setFiltroGerencia] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('todas');
+
+  // Estados para o Modal de Devolução
+  const [emprestimoParaDevolver, setEmprestimoParaDevolver] = useState<any>(null);
+  const [dataDevolucao, setDataDevolucao] = useState(() => new Date().toISOString().split('T')[0]);
+  const [nomeRecebedor, setNomeRecebedor] = useState('');
+  const [matriculaRecebedor, setMatriculaRecebedor] = useState('');
 
   const emprestimosFiltrados = useMemo(() => {
     let resultado = emprestimos;
 
-    // 1. Aba (Status)
     if (abaAtiva === 'Pendente') {
       resultado = resultado.filter(e => e.status === 'Pendente');
     } else if (abaAtiva === 'Devolvido') {
       resultado = resultado.filter(e => e.status === 'Devolvido');
     }
 
-    // 2. Busca de Texto Livre (Funcionário ou Ferramenta)
     if (buscaTexto.trim() !== '') {
       const termoBusca = buscaTexto.toLowerCase();
       resultado = resultado.filter(e => 
@@ -49,7 +50,6 @@ export function ControleFerramentaria() {
       );
     }
 
-    // 3. Período de Data
     if (filtroDataInicio !== '' || filtroDataFim !== '') {
       resultado = resultado.filter(e => {
         if (!e.data_saida) return false;
@@ -66,7 +66,6 @@ export function ControleFerramentaria() {
       });
     }
 
-    // 4. NOVO: Filtro de Gerência
     if (filtroGerencia.trim() !== '') {
       const termoGerencia = filtroGerencia.toLowerCase();
       resultado = resultado.filter(e => 
@@ -74,7 +73,6 @@ export function ControleFerramentaria() {
       );
     }
 
-    // 5. NOVO: Filtro de Categoria
     if (filtroCategoria !== 'todas') {
       resultado = resultado.filter(e => e.material_categoria === filtroCategoria);
     }
@@ -82,9 +80,10 @@ export function ControleFerramentaria() {
     return resultado;
   }, [emprestimos, abaAtiva, buscaTexto, filtroDataInicio, filtroDataFim, filtroGerencia, filtroCategoria]);
 
+  // AQUI FOI A MUDANÇA: Agora ele pega da lista "emprestimosFiltrados" ao invés de "emprestimos" gerais
   const pendentesParaImprimir = useMemo(() => {
-    return emprestimos.filter(e => e.status === 'Pendente');
-  }, [emprestimos]);
+    return emprestimosFiltrados.filter(e => e.status === 'Pendente');
+  }, [emprestimosFiltrados]);
 
   const contadores = useMemo(() => ({
     todos: emprestimos.length,
@@ -100,12 +99,33 @@ export function ControleFerramentaria() {
     setFiltroCategoria('todas');
   };
 
-  const handleMarcarDevolvido = async (emprestimo: any) => {
+  const abrirModalDevolucao = (emprestimo: any) => {
+    setEmprestimoParaDevolver(emprestimo);
+    if (user) {
+      setNomeRecebedor(user.nome);
+      setMatriculaRecebedor(user.matricula);
+    }
+    setDataDevolucao(new Date().toISOString().split('T')[0]);
+  };
+
+  const confirmarDevolucao = async () => {
+    if (!emprestimoParaDevolver || !nomeRecebedor || !matriculaRecebedor) return;
+    
     setProcessando(true);
-    await marcarComoDevolvido(emprestimo);
+    const responsavel = `${nomeRecebedor} (Mat: ${matriculaRecebedor})`;
+    
+    await marcarComoDevolvido(emprestimoParaDevolver, {
+      data_devolucao: dataDevolucao,
+      responsavel_recebimento: responsavel
+    });
+    
     if (recarregarMateriais) {
       await recarregarMateriais();
     }
+    
+    setEmprestimoParaDevolver(null);
+    setNomeRecebedor('');
+    setMatriculaRecebedor('');
     setProcessando(false);
   };
 
@@ -120,7 +140,6 @@ export function ControleFerramentaria() {
     return <Badge className="bg-green-100 text-green-800 hover:bg-green-100"><CheckCircle className="size-3 mr-1" /> Devolvido</Badge>;
   };
 
-  // NOVO: Função para desenhar a etiqueta de Categoria
   const getCategoriaBadge = (categoria?: string) => {
     if (categoria === 'eletrico') {
       return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200"><Zap className="size-3 mr-1" /> Elétrico</Badge>;
@@ -128,10 +147,9 @@ export function ControleFerramentaria() {
     if (categoria === 'mecanico') {
       return <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200"><Wrench className="size-3 mr-1" /> Mecânico</Badge>;
     }
-    return null; // Caso não tenha categoria registada
+    return null;
   };
 
-  // Verifica se há algum filtro ativo para mostrar o botão de limpar
   const temFiltroAtivo = buscaTexto !== '' || filtroDataInicio !== '' || filtroDataFim !== '' || filtroGerencia !== '' || filtroCategoria !== 'todas';
 
   return (
@@ -144,7 +162,7 @@ export function ControleFerramentaria() {
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
             <Button onClick={handleImprimir} variant="outline" className="w-full sm:w-auto">
-              <Printer className="size-4 mr-2" /> Imprimir Pendentes
+              <Printer className="size-4 mr-2" /> Imprimir Pendentes Filtrados
             </Button>
             <Button onClick={() => setMostrarFormulario(true)} size="default" className="w-full sm:w-auto">
               <Plus className="size-5 mr-2" /> Nova Saída
@@ -168,10 +186,8 @@ export function ControleFerramentaria() {
               <CardDescription>Refine a sua lista combinando os filtros abaixo</CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Ajustamos a grelha de filtros para caber as 4 opções de forma limpa */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 
-                {/* 1. Busca Livre */}
                 <div className="space-y-2 lg:col-span-2">
                   <Label htmlFor="busca">Funcionário, Matrícula ou Ferramenta</Label>
                   <div className="relative">
@@ -180,7 +196,6 @@ export function ControleFerramentaria() {
                   </div>
                 </div>
 
-                {/* 2. Filtro Período */}
                 <div className="space-y-2 lg:col-span-2">
                   <Label>Período de Saída</Label>
                   <div className="flex items-center gap-2">
@@ -196,13 +211,11 @@ export function ControleFerramentaria() {
                   </div>
                 </div>
 
-                {/* 3. Filtro Gerência */}
                 <div className="space-y-2 lg:col-span-2">
                   <Label htmlFor="gerencia">Filtrar por Gerência</Label>
                   <Input id="gerencia" placeholder="Ex: Manutenção, Produção..." value={filtroGerencia} onChange={(e) => setFiltroGerencia(e.target.value)} />
                 </div>
 
-                {/* 4. Filtro Categoria */}
                 <div className="space-y-2 lg:col-span-2">
                   <Label htmlFor="categoria">Filtrar por Categoria</Label>
                   <select
@@ -247,11 +260,9 @@ export function ControleFerramentaria() {
                       <div className="flex flex-col lg:flex-row justify-between gap-4">
                         <div className="flex-1">
                           
-                          {/* AQUI: O cabeçalho do Cartão com Título e Badges */}
                           <div className="flex items-center gap-2 mb-3 flex-wrap">
                             <CardTitle className="text-lg mr-1">{emprestimo.materialSolicitado}</CardTitle>
                             
-                            {/* Inserção da Badge de Categoria */}
                             {getCategoriaBadge(emprestimo.material_categoria)}
                             
                             <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
@@ -270,6 +281,20 @@ export function ControleFerramentaria() {
                               {emprestimo.gerencia && (
                                 <div><span className="font-semibold text-gray-700">Gerência:</span> <span className="text-gray-900">{emprestimo.gerencia}</span></div>
                               )}
+                              {emprestimo.status === 'Devolvido' && emprestimo.data_devolucao && (
+                                <>
+                                  <div>
+                                    <span className="font-semibold text-gray-700">Data de Devolução:</span>{' '}
+                                    <span className="text-gray-900">{new Date(emprestimo.data_devolucao + 'T12:00:00Z').toLocaleDateString('pt-BR')}</span>
+                                  </div>
+                                  {emprestimo.responsavel_recebimento && (
+                                    <div className="sm:col-span-2">
+                                      <span className="font-semibold text-gray-700">Recebido por:</span>{' '}
+                                      <span className="text-gray-900">{emprestimo.responsavel_recebimento}</span>
+                                    </div>
+                                  )}
+                                </>
+                              )}
                             </div>
                             
                             {emprestimo.observacao && (
@@ -283,7 +308,7 @@ export function ControleFerramentaria() {
 
                         {emprestimo.status === 'Pendente' && (
                           <div className="flex items-start">
-                            <Button onClick={() => handleMarcarDevolvido(emprestimo)} size="lg" className="bg-green-600 hover:bg-green-700 w-full lg:w-auto" disabled={processando}>
+                            <Button onClick={() => abrirModalDevolucao(emprestimo)} size="lg" className="bg-green-600 hover:bg-green-700 w-full lg:w-auto" disabled={processando}>
                               <CheckCircle className="size-5 mr-2" /> Marcar como Devolvido
                             </Button>
                           </div>
@@ -306,18 +331,70 @@ export function ControleFerramentaria() {
         {mostrarFormulario && <FormularioSaida onFechar={() => setMostrarFormulario(false)} />}
       </div>
 
+      {/* MODAL DE DEVOLUÇÃO */}
+      {emprestimoParaDevolver && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm print:hidden">
+          <Card className="w-full max-w-md shadow-2xl">
+            <CardHeader>
+              <CardTitle className="text-xl">Confirmar Devolução</CardTitle>
+              <CardDescription>
+                Ferramenta: <strong className="text-gray-800">{emprestimoParaDevolver.materialSolicitado}</strong>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Data da Devolução *</Label>
+                <Input type="date" value={dataDevolucao} onChange={e => setDataDevolucao(e.target.value)} required />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Nome de quem está recebendo</Label>
+                <Input 
+                  value={nomeRecebedor} 
+                  readOnly 
+                  className="bg-gray-100 text-gray-600 cursor-not-allowed border-gray-200" 
+                  title="Preenchido automaticamente com o usuário logado"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Matrícula de quem está recebendo</Label>
+                <Input 
+                  value={matriculaRecebedor} 
+                  readOnly 
+                  className="bg-gray-100 text-gray-600 cursor-not-allowed border-gray-200" 
+                  title="Preenchido automaticamente com o usuário logado"
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" className="flex-1" onClick={() => setEmprestimoParaDevolver(null)} disabled={processando}>
+                  Cancelar
+                </Button>
+                <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={confirmarDevolucao} disabled={processando || !nomeRecebedor || !matriculaRecebedor}>
+                  {processando ? 'Salvando...' : 'Confirmar Recebimento'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* ÁREA DE IMPRESSÃO */}
       <div className="hidden print:block print:fixed print:inset-0 print:bg-white print:z-[9999] print:p-8">
         <div className="mb-6 border-b-2 border-gray-800 pb-4">
           <h1 className="text-2xl font-bold text-gray-900">Relatório de Ferramentas Pendentes</h1>
           <p className="text-gray-600">Gerado em: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+          {temFiltroAtivo && (
+            <p className="text-sm font-semibold text-blue-600 mt-2">
+              (Imprimindo com filtros ativos aplicados)
+            </p>
+          )}
         </div>
 
         <table className="w-full border-collapse text-left text-sm">
           <thead>
             <tr className="bg-gray-100 border-b-2 border-gray-400">
               <th className="py-2 px-2 font-bold text-gray-800">Ferramenta</th>
-              {/* NOVO NA TABELA: Categoria e Gerência para Impressão */}
               <th className="py-2 px-2 font-bold text-gray-800">Cat.</th>
               <th className="py-2 px-2 font-bold text-gray-800 text-center">Qtd</th>
               <th className="py-2 px-2 font-bold text-gray-800">Retirado por (Func. / Gerência)</th>
@@ -327,17 +404,14 @@ export function ControleFerramentaria() {
           </thead>
           <tbody>
             {pendentesParaImprimir.length === 0 ? (
-              <tr><td colSpan={6} className="py-4 text-center text-gray-500 italic">Nenhuma saída pendente no momento.</td></tr>
+              <tr><td colSpan={6} className="py-4 text-center text-gray-500 italic">Nenhuma saída pendente com esses filtros no momento.</td></tr>
             ) : (
               pendentesParaImprimir.map((emprestimo, index) => (
                 <tr key={emprestimo.id} className={`border-b border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                   <td className="py-2 px-2 font-medium">{emprestimo.materialSolicitado}</td>
-                  
-                  {/* Transformando 'eletrico' em 'Elétrico' na Impressão */}
                   <td className="py-2 px-2">
                     {emprestimo.material_categoria === 'eletrico' ? 'Elétrico' : emprestimo.material_categoria === 'mecanico' ? 'Mecânico' : '-'}
                   </td>
-                  
                   <td className="py-2 px-2 font-bold text-center">{emprestimo.quantidade}</td>
                   <td className="py-2 px-2">
                     {emprestimo.usuario}

@@ -11,13 +11,15 @@ export interface Emprestimo {
   status: 'Pendente' | 'Devolvido';
   data_saida: string;
   observacao?: string;
+  data_devolucao?: string;
+  responsavel_recebimento?: string;
 }
 
 interface EmprestimosContextType {
   emprestimos: Emprestimo[];
   carregando: boolean;
   adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => Promise<void>;
-  marcarComoDevolvido: (emprestimo: Emprestimo) => Promise<void>;
+  marcarComoDevolvido: (emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string }) => Promise<void>;
   recarregarEmprestimos: () => Promise<void>;
 }
 
@@ -88,11 +90,15 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     }
   };
 
-  const marcarComoDevolvido = async (emprestimo: Emprestimo) => {
+  const marcarComoDevolvido = async (emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string }) => {
     try {
       const { error: errUpdate } = await supabase
         .from('emprestimos')
-        .update({ status: 'Devolvido' })
+        .update({ 
+          status: 'Devolvido',
+          data_devolucao: dadosDevolucao.data_devolucao,
+          responsavel_recebimento: dadosDevolucao.responsavel_recebimento
+        })
         .eq('id', emprestimo.id);
 
       if (errUpdate) throw errUpdate;
