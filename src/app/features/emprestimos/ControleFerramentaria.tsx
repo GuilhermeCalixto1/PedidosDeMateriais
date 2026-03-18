@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Plus, Package, Printer } from 'lucide-react';
+import { toast } from 'sonner';
 
 // Os nossos componentes refatorados!
 import { FormularioSaida } from './components/FormularioSaida';
@@ -111,25 +112,34 @@ export function ControleFerramentaria() {
     setDataDevolucao(new Date().toISOString().split('T')[0]);
   };
 
-  const confirmarDevolucao = async () => {
+ const confirmarDevolucao = async () => {
     if (!emprestimoParaDevolver || !nomeRecebedor || !matriculaRecebedor) return;
     
     setProcessando(true);
     const responsavel = `${nomeRecebedor} (Mat: ${matriculaRecebedor})`;
     
-    await marcarComoDevolvido(emprestimoParaDevolver, {
-      data_devolucao: dataDevolucao,
-      responsavel_recebimento: responsavel
-    });
-    
-    if (recarregarMateriais) {
-      await recarregarMateriais();
+    try {
+      await marcarComoDevolvido(emprestimoParaDevolver, {
+        data_devolucao: dataDevolucao,
+        responsavel_recebimento: responsavel
+      });
+      
+      if (recarregarMateriais) {
+        await recarregarMateriais();
+      }
+      
+      // SUCESSO!
+      toast.success(`A ferramenta "${emprestimoParaDevolver.materialSolicitado}" foi devolvida com sucesso!`);
+      
+      setEmprestimoParaDevolver(null);
+      setNomeRecebedor('');
+      setMatriculaRecebedor('');
+    } catch (error) {
+      // ERRO!
+      toast.error('Ocorreu um erro ao tentar registar a devolução. Verifique a sua ligação.');
+    } finally {
+      setProcessando(false);
     }
-    
-    setEmprestimoParaDevolver(null);
-    setNomeRecebedor('');
-    setMatriculaRecebedor('');
-    setProcessando(false);
   };
 
   const handleImprimir = () => {

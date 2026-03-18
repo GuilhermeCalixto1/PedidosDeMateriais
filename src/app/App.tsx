@@ -7,6 +7,7 @@ import { ControleFerramentaria } from './features/emprestimos/ControleFerramenta
 import { GerenciamentoMateriais } from './features/estoque/GerenciamentoMateriais';
 import { Button } from './components/ui/button';
 import { Package, ClipboardList } from 'lucide-react';
+import { Toaster } from './components/ui/sonner'; // <-- 1. ADICIONADO AQUI
 
 function AppContent() {
   const { isAuthenticated, user } = useAuth();
@@ -61,6 +62,9 @@ function AppContent() {
           <GerenciamentoMateriais />
         )}
       </div>
+
+      {/* 2. ADICIONADO AQUI - Fica invisível até que um toast seja chamado */}
+      <Toaster richColors position="top-right" /> 
     </div>
   );
 }

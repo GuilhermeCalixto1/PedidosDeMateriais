@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Plus } from 'lucide-react';
+import { toast } from 'sonner';
 
 // 1. Contextos (voltamos 2 pastas: features -> app -> contexts)
 import { useMateriais } from '../../contexts/MateriaisContext';
@@ -37,15 +38,17 @@ export function GerenciamentoMateriais() {
   }, [materiais, buscaTexto, filtroCategoria]);
 
   // Lógica de negócio: Excluir
-  const handleExcluir = async (id: string, nome: string) => {
+ const handleExcluir = async (id: string, nome: string) => {
     if (confirm(`Deseja realmente excluir "${nome}"?`)) {
       try {
         await excluirMaterial(id);
+        toast.success(`"${nome}" foi removido do estoque.`); // SUCESSO!
       } catch (error) {
-        alert('Erro ao excluir material');
+        toast.error(`Não foi possível remover "${nome}". Verifique a conexão.`); // ERRO!
       }
     }
   };
+
 
   return (
     <div className="space-y-6">

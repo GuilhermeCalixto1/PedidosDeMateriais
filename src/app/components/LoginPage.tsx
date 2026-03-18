@@ -4,151 +4,107 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
-import { Alert, AlertDescription } from './ui/alert';
 import { Package, Loader2 } from 'lucide-react';
+import { toast } from 'sonner'; // <-- IMPORT DO TOAST
 
 export function LoginPage() {
-  const [isLogin, setIsLogin] = useState(true);
-  
-  const [nome, setNome] = useState('');
+  const { login } = useAuth();
   const [matricula, setMatricula] = useState('');
   const [senha, setSenha] = useState('');
-  
-  const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
-  
-  const { login, cadastrar } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErro('');
-    setCarregando(true);
-    
-    if (isLogin) {
-      // Fluxo de Login com Supabase
-      const { error } = await login(matricula, senha);
-      if (error) setErro(error);
-    } else {
-      // Fluxo de Cadastro com Supabase
-      if (senha.length < 6) {
-        setErro('O Supabase exige que a senha tenha pelo menos 6 caracteres.');
-        setCarregando(false);
-        return;
-      }
 
-      const { error } = await cadastrar(nome, matricula, senha);
-      if (error) {
-        setErro(error);
-      }
-      // Se não houver erro, o Supabase já fará o login automático e mudará a tela
+    if (!matricula || !senha) {
+      toast.warning('Por favor, preencha todos os campos.');
+      return;
     }
-    
-    setCarregando(false);
-  };
 
-  const alternarModo = () => {
-    setIsLogin(!isLogin);
-    setErro('');
-    setNome('');
-    setMatricula('');
-    setSenha('');
+    setCarregando(true);
+
+    // O nosso AuthContext refatorado retorna um objeto com { error }
+    const { error } = await login(matricula, senha);
+
+    if (error) {
+      // ERRO: Exibe o toast vermelho com a mensagem vinda do serviço
+      toast.error(error); 
+      setCarregando(false);
+    } else {
+      // SUCESSO: Exibe um toast verde de boas-vindas
+      toast.success('Bem-vindo ao Sistema de Ferramentaria!');
+      // Não precisamos de fazer setCarregando(false) porque o App.tsx vai 
+      // desmontar este ecrã automaticamente quando detetar o utilizador logado.
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 bg-blue-600 rounded-full">
-              <Package className="size-8 text-white" />
-            </div>
-          </div>
-          <CardTitle className="text-2xl">Sistema de Pedidos</CardTitle>
-          <CardDescription>
-            {isLogin 
-              ? 'Faça login com sua matrícula para acessar' 
-              : 'Crie sua conta para solicitar materiais'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {!isLogin && (
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
+        <div className="p-3 bg-blue-600 rounded-xl mb-4 shadow-lg">
+          <Package className="size-10 text-white" />
+        </div>
+        <h2 className="text-center text-3xl font-extrabold text-gray-900">
+          Ferramentaria
+        </h2>
+        <p className="mt-2 text-center text-sm text-gray-600">
+          Faça login com a sua matrícula para continuar
+        </p>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <Card className="shadow-xl border-t-4 border-t-blue-600">
+          <CardHeader>
+            <CardTitle>Acesso ao Sistema</CardTitle>
+            <CardDescription>Insira as suas credenciais</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              
               <div className="space-y-2">
-                <Label htmlFor="nome">Nome Completo</Label>
+                <Label htmlFor="matricula">Matrícula</Label>
                 <Input
-                  id="nome"
+                  id="matricula"
                   type="text"
-                  placeholder="Ex: Guilherme Calixto"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  required={!isLogin}
+                  placeholder="Ex: 12345"
+                  value={matricula}
+                  onChange={(e) => setMatricula(e.target.value)}
+                  disabled={carregando}
+                  required
                 />
               </div>
-            )}
 
-            <div className="space-y-2">
-              <Label htmlFor="matricula">Matrícula</Label>
-              <Input
-                id="matricula"
-                type="text"
-                placeholder="Ex: 12345"
-                value={matricula}
-                onChange={(e) => setMatricula(e.target.value.trim())} // O trim remove espaços em branco sem querer
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="senha">Senha</Label>
-              <Input
-                id="senha"
-                type="password"
-                placeholder="••••••"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            
-            {erro && (
-              <Alert variant="destructive">
-                <AlertDescription>{erro}</AlertDescription>
-              </Alert>
-            )}
-            
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={carregando}>
-              {carregando ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Aguarde...
-                </>
-              ) : (
-                isLogin ? 'Entrar' : 'Cadastrar'
-              )}
-            </Button>
-          </form>
-          
-          <div className="mt-6 text-center text-sm text-gray-600">
-            {isLogin ? (
-              <p>
-                Não tem uma conta?{' '}
-                <button type="button" onClick={alternarModo} className="text-blue-600 font-semibold hover:underline">
-                  Cadastre-se
-                </button>
-              </p>
-            ) : (
-              <p>
-                Já tem uma conta?{' '}
-                <button type="button" onClick={alternarModo} className="text-blue-600 font-semibold hover:underline">
-                  Faça login
-                </button>
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              <div className="space-y-2">
+                <Label htmlFor="senha">Senha</Label>
+                <Input
+                  id="senha"
+                  type="password"
+                  placeholder="••••••••"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  disabled={carregando}
+                  required
+                />
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-md py-6" 
+                disabled={carregando || !matricula || !senha}
+              >
+                {carregando ? (
+                  <>
+                    <Loader2 className="mr-2 size-5 animate-spin" />
+                    A validar credenciais...
+                  </>
+                ) : (
+                  'Entrar no Sistema'
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
