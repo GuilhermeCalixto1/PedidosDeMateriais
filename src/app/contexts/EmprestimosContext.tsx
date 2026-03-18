@@ -1,14 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { emprestimosService } from '../services/emprestimosService';
-import { Emprestimo, NovaSaidaDTO } from '../types/index';
-
-// Para o React, usamos a interface EmprestimoDTO importada do nosso serviço
-export type Emprestimo = EmprestimoDTO;
+import { Emprestimo, NovaSaidaDTO } from '../types';
 
 interface EmprestimosContextType {
   emprestimos: Emprestimo[];
   carregando: boolean;
-  adicionarEmprestimo: (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => Promise<void>;
+  adicionarEmprestimo: (novaSaida: NovaSaidaDTO, materialId?: string) => Promise<void>;
   marcarComoDevolvido: (emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string }) => Promise<void>;
   recarregarEmprestimos: () => Promise<void>;
 }
@@ -31,11 +28,10 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
-  const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => {
+  const adicionarEmprestimo = async (novaSaida: NovaSaidaDTO, materialId?: string) => {
     try {
-      // Chama o serviço que faz todo o trabalho pesado no Supabase
       await emprestimosService.registrarSaida(novaSaida, materialId);
-      await carregarEmprestimos(); // Recarrega a lista
+      await carregarEmprestimos();
     } catch (error) {
       console.error(error);
       throw error;
@@ -44,9 +40,8 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
 
   const marcarComoDevolvido = async (emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string }) => {
     try {
-      // Chama o serviço que faz a devolução e repõe o stock
       await emprestimosService.registrarDevolucao(emprestimo, dadosDevolucao);
-      await carregarEmprestimos(); // Recarrega a lista
+      await carregarEmprestimos();
     } catch (error) {
       console.error(error);
     }

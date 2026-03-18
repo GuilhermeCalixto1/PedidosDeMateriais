@@ -2,15 +2,12 @@ import React, { useState } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useEmprestimos } from '../../../contexts/EmprestimosContext';
 import { useMateriais } from '../../../contexts/MateriaisContext';
-import { Button } from '../../../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
-import { Badge } from '../../../components/ui/badge';
+import { Button } from '../../../components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Textarea } from '../../../components/ui/textarea';
-import { X, Search, Wrench, Zap, AlertCircle } from 'lucide-react';
 
 interface FormularioSaidaProps {
   onFechar: () => void;
@@ -19,190 +16,138 @@ interface FormularioSaidaProps {
 export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
   const { user } = useAuth();
   const { adicionarEmprestimo } = useEmprestimos();
-  const { materiais, recarregarMateriais } = useMateriais();
-  
-  const [mostrarSeletorMaterial, setMostrarSeletorMaterial] = useState(true);
-  const [materialSelecionado, setMaterialSelecionado] = useState<{ id: string; nome: string; categoria: 'mecanico' | 'eletrico'; quantidadeDisponivel: number; } | null>(null);
-  
-  const [quantidadeRetirada, setQuantidadeRetirada] = useState('1');
-  const [buscaMaterial, setBuscaMaterial] = useState('');
-  const [nomeFuncionario, setNomeFuncionario] = useState('');
-  const [matricula, setMatricula] = useState('');
-  
-  // NOVO: Adicionamos o estado de gerência
+  const { materiais } = useMateriais();
+
+  const [materialSolicitado, setMaterialSolicitado] = useState('');
+  const [quantidade, setQuantidade] = useState('');
   const [gerencia, setGerencia] = useState('');
-  
   const [observacao, setObservacao] = useState('');
-  const [dataSaida, setDataSaida] = useState(() => new Date().toISOString().split('T')[0]);
+  
+  const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
-  const [enviando, setEnviando] = useState(false);
-
-  const materiaisDisponiveis = materiais
-    .filter(m => m.quantidade > 0)
-    .filter(m => {
-      if (!buscaMaterial.trim()) return true;
-      return m.nome.toLowerCase().includes(buscaMaterial.toLowerCase());
-    });
-
-  const handleSelecionarMaterial = (material: any) => {
-    setMaterialSelecionado({ id: material.id, nome: material.nome, categoria: material.categoria, quantidadeDisponivel: material.quantidade });
-    setQuantidadeRetirada('1');
-    setMostrarSeletorMaterial(false);
-  };
-
-  const handleVoltarSeletor = () => {
-    setMaterialSelecionado(null);
-    setMostrarSeletorMaterial(true);
-    setBuscaMaterial('');
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro('');
-    setEnviando(true);
-
-    if (!materialSelecionado) {
-      setErro('Selecione um material');
-      setEnviando(false);
-      return;
-    }
-
-    const qtd = parseInt(quantidadeRetirada);
-    if (isNaN(qtd) || qtd <= 0) {
-      setErro('Quantidade deve ser maior que zero');
-      setEnviando(false);
-      return;
-    }
-
-    if (qtd > materialSelecionado.quantidadeDisponivel) {
-      setErro(`Quantidade disponível em estoque: ${materialSelecionado.quantidadeDisponivel}`);
-      setEnviando(false);
-      return;
-    }
+    setSalvando(true);
 
     try {
-      // AQUI MUDOU: Agora enviamos os campos exatamente como o Contexto pediu!
+      const materialSelecionado = materiais.find(m => m.id === materialSolicitado);
+      if (!materialSelecionado) {
+        setErro('Por favor, selecione uma ferramenta válida.');
+        setSalvando(false);
+        return;
+      }
+
+      const qtd = parseInt(quantidade);
+      if (isNaN(qtd) || qtd <= 0) {
+        setErro('A quantidade deve ser maior que zero.');
+        setSalvando(false);
+        return;
+      }
+
+      if (qtd > materialSelecionado.quantidade) {
+        setErro(`Quantidade indisponível. Temos apenas ${materialSelecionado.quantidade} em estoque.`);
+        setSalvando(false);
+        return;
+      }
+
+      // Chama a função do Contexto (que agora usa o Serviço por trás!)
       await adicionarEmprestimo({
-        usuario: `${nomeFuncionario} (Mat: ${matricula})`,
+        usuario: user?.nome || 'Usuário Desconhecido',
         materialSolicitado: materialSelecionado.nome,
         material_categoria: materialSelecionado.categoria,
-        gerencia: gerencia || 'Não informada',
+        gerencia: gerencia,
         quantidade: qtd,
-        observacao: observacao,
-        data_saida: dataSaida,
-      });
+        data_saida: new Date().toISOString().split('T')[0], // Pega apenas a data YYYY-MM-DD
+        observacao: observacao
+      }, materialSelecionado.id);
 
-      await recarregarMateriais();
       onFechar();
     } catch (error) {
-      console.error('Erro ao processar saída:', error);
-      setErro('Erro ao registrar saída no banco de dados.');
+      setErro('Erro ao registar a saída. Tente novamente.');
     } finally {
-      setEnviando(false);
+      setSalvando(false);
     }
-  };
-
-  const getCategoriaBadge = (categoria: string) => {
-    if (categoria === 'eletrico') return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200"><Zap className="size-3 mr-1" /> Elétrico</Badge>;
-    return <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200"><Wrench className="size-3 mr-1" /> Mecânico</Badge>;
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
-        <CardHeader className="sticky top-0 bg-white z-10 border-b">
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-2xl">Registrar Saída</CardTitle>
-              <CardDescription>{mostrarSeletorMaterial ? 'Passo 1: Selecione a ferramenta' : 'Passo 2: Dados do funcionário e quantidade'}</CardDescription>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onFechar}><X className="size-5" /></Button>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="pt-6">
-          {mostrarSeletorMaterial ? (
-            <div className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-                <Input placeholder="Buscar ferramenta no inventário..." value={buscaMaterial} onChange={(e) => setBuscaMaterial(e.target.value)} className="pl-10" />
-              </div>
+    <Dialog open={true} onOpenChange={(val) => !val && onFechar()}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Registar Nova Saída</DialogTitle>
+          <DialogDescription>
+            Preencha os dados abaixo para registar o empréstimo de uma ferramenta.
+          </DialogDescription>
+        </DialogHeader>
 
-              <div className="border rounded-md overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-gray-50">
-                    <TableRow><TableHead>Ferramenta</TableHead><TableHead className="text-right">Estoque</TableHead><TableHead className="text-right">Ação</TableHead></TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {materiaisDisponiveis.map((m) => (
-                      <TableRow key={m.id}>
-                        <TableCell><div className="font-medium">{m.nome}</div><div className="mt-1">{getCategoriaBadge(m.categoria)}</div></TableCell>
-                        <TableCell className="text-right"><span className="font-bold text-blue-600">{m.quantidade}</span></TableCell>
-                        <TableCell className="text-right"><Button size="sm" onClick={() => handleSelecionarMaterial(m)}>Selecionar</Button></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {erro && <Alert variant="destructive"><AlertCircle className="size-4" /><AlertDescription>{erro}</AlertDescription></Alert>}
-
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center">
-                <div>
-                  <Label className="text-xs text-blue-600 uppercase font-bold">Item Selecionado</Label>
-                  <p className="text-lg font-bold text-blue-900">{materialSelecionado?.nome}</p>
-                </div>
-                <Button type="button" variant="link" onClick={handleVoltarSeletor} className="text-blue-600">Trocar item</Button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b pb-4">
-                <div className="space-y-2">
-                  <Label htmlFor="quantidade">Quantidade *</Label>
-                  <Input id="quantidade" type="number" min="1" max={materialSelecionado?.quantidadeDisponivel} value={quantidadeRetirada} onChange={(e) => setQuantidadeRetirada(e.target.value)} required />
-                  <span className="text-xs text-gray-500 block">Máximo disponível: {materialSelecionado?.quantidadeDisponivel}</span>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="dataSaida">Data da Saída *</Label>
-                  <Input id="dataSaida" type="date" value={dataSaida} onChange={(e) => setDataSaida(e.target.value)} required />
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-2">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="nomeFuncionario">Funcionário *</Label>
-                    <Input id="nomeFuncionario" placeholder="Quem está retirando?" value={nomeFuncionario} onChange={(e) => setNomeFuncionario(e.target.value)} required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="matricula">Matrícula *</Label>
-                    <Input id="matricula" placeholder="Ex: 1234" value={matricula} onChange={(e) => setMatricula(e.target.value)} required />
-                  </div>
-                  {/* NOVO CAMPO: GERÊNCIA */}
-                  <div className="space-y-2">
-                    <Label htmlFor="gerencia">Gerência (Opcional)</Label>
-                    <Input id="gerencia" placeholder="Ex: Manutenção" value={gerencia} onChange={(e) => setGerencia(e.target.value)} />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="observacao">Observações / Motivo da Saída</Label>
-                  <Textarea id="observacao" placeholder="Alguma observação sobre o estado da ferramenta ou motivo da retirada?" value={observacao} onChange={(e) => setObservacao(e.target.value)} rows={3} />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <Button type="button" variant="outline" onClick={handleVoltarSeletor} className="flex-1" disabled={enviando}>Voltar</Button>
-                <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white" disabled={enviando}>
-                  {enviando ? 'Processando...' : 'Confirmar Saída'}
-                </Button>
-              </div>
-            </form>
+        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          {erro && (
+            <Alert variant="destructive">
+              <AlertDescription>{erro}</AlertDescription>
+            </Alert>
           )}
-        </CardContent>
-      </Card>
-    </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="ferramenta">Ferramenta Solicitada *</Label>
+            <Select value={materialSolicitado} onValueChange={setMaterialSolicitado}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a ferramenta..." />
+              </SelectTrigger>
+              <SelectContent>
+                {materiais.filter(m => m.quantidade > 0).map(material => (
+                  <SelectItem key={material.id} value={material.id}>
+                    {material.nome} (Estoque: {material.quantidade})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="quantidade">Quantidade *</Label>
+              <Input 
+                id="quantidade" 
+                type="number" 
+                min="1" 
+                value={quantidade} 
+                onChange={(e) => setQuantidade(e.target.value)} 
+                required 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gerencia">Gerência Solicitante *</Label>
+              <Input 
+                id="gerencia" 
+                placeholder="Ex: Manutenção, Produção..." 
+                value={gerencia} 
+                onChange={(e) => setGerencia(e.target.value)} 
+                required 
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="observacao">Observação / Motivo</Label>
+            <Input 
+              id="observacao" 
+              placeholder="Opcional. Ex: Reparo na máquina X..." 
+              value={observacao} 
+              onChange={(e) => setObservacao(e.target.value)} 
+            />
+          </div>
+
+          <DialogFooter className="pt-4">
+            <Button type="button" variant="outline" onClick={onFechar} disabled={salvando}>
+              Cancelar
+            </Button>
+            <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={salvando || !materialSolicitado || !quantidade || !gerencia}>
+              {salvando ? 'A registar...' : 'Registar Saída'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,11 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { materiaisService } from '../services/materiaisService';
-import { Material, MaterialDTO } from '../types/index';
-
-// Interfaces apenas para a gestão de estado do React
-export interface Material extends MaterialDTO {
-  id: string;
-}
+import { Material, MaterialDTO } from '../types';
 
 interface MateriaisContextType {
   materiais: Material[];
@@ -22,7 +17,6 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
   const [materiais, setMateriais] = useState<Material[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  // Agora o Contexto apenas delega o trabalho pesado para o Service
   const carregarMateriais = useCallback(async () => {
     setCarregando(true);
     try {
@@ -30,7 +24,6 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
       setMateriais(dados as Material[]);
     } catch (error) {
       console.error(error);
-      // Aqui poderíamos integrar um sistema de Toasts (Notificações) no futuro!
     } finally {
       setCarregando(false);
     }
@@ -39,7 +32,7 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
   const adicionarMaterial = async (novoMaterial: MaterialDTO) => {
     try {
       await materiaisService.criar(novoMaterial);
-      await carregarMateriais(); // Recarrega a lista após o sucesso
+      await carregarMateriais(); 
     } catch (error) {
       console.error(error);
       throw error;
@@ -47,28 +40,26 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
   };
 
   const atualizarQuantidade = async (id: string, novaQuantidade: number) => {
-    // Atualização Otimista (Muda logo no ecrã para parecer mais rápido ao utilizador)
     setMateriais(prev => prev.map(m => m.id === id ? { ...m, quantidade: novaQuantidade } : m));
     
     try {
       await materiaisService.atualizarQuantidade(id, novaQuantidade);
     } catch (error) {
       console.error(error);
-      await carregarMateriais(); // Se falhar no banco, desfaz a alteração visual
+      await carregarMateriais();
     }
   };
 
   const excluirMaterial = async (id: string) => {
     try {
       await materiaisService.excluir(id);
-      setMateriais(prev => prev.filter(m => m.id !== id)); // Remove localmente sem precisar recarregar tudo
+      setMateriais(prev => prev.filter(m => m.id !== id)); 
     } catch (error) {
       console.error(error);
       throw error;
     }
   };
 
-  // Carrega os materiais logo que a aplicação inicia
   useEffect(() => {
     carregarMateriais();
   }, [carregarMateriais]);
