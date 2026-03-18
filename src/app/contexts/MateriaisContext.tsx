@@ -1,19 +1,16 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-// Importamos o cliente que já tem a sua URL e Chave Anon
-import { supabase } from '../../../utils/supabase/supabaseClient';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { materiaisService } from '../services/materiaisService';
+import { Material, MaterialDTO } from '../types/index';
 
-export interface Material {
+// Interfaces apenas para a gestão de estado do React
+export interface Material extends MaterialDTO {
   id: string;
-  nome: string;
-  categoria: 'mecanico' | 'eletrico';
-  quantidade: number;
-  data_registro?: string; // Ajustado para o padrão do banco (snake_case)
 }
 
 interface MateriaisContextType {
   materiais: Material[];
   carregando: boolean;
-  adicionarMaterial: (material: Omit<Material, 'id' | 'data_registro'>) => Promise<void>;
+  adicionarMaterial: (novo: MaterialDTO) => Promise<void>;
   atualizarQuantidade: (id: string, novaQuantidade: number) => Promise<void>;
   excluirMaterial: (id: string) => Promise<void>;
   recarregarMateriais: () => Promise<void>;
@@ -25,75 +22,56 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
   const [materiais, setMateriais] = useState<Material[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  // 1. Carregar materiais do Banco de Dados
-  const carregarMateriais = async () => {
+  // Agora o Contexto apenas delega o trabalho pesado para o Service
+  const carregarMateriais = useCallback(async () => {
     setCarregando(true);
     try {
-      const { data, error } = await supabase
-        .from('materiais')
-        .select('*')
-        .order('nome', { ascending: true });
-
-      if (error) throw error;
-      setMateriais(data || []);
+      const dados = await materiaisService.obterTodos();
+      setMateriais(dados as Material[]);
     } catch (error) {
-      console.error('Erro ao carregar materiais:', error);
+      console.error(error);
+      // Aqui poderíamos integrar um sistema de Toasts (Notificações) no futuro!
     } finally {
       setCarregando(false);
     }
-  };
+  }, []);
 
-  // 2. Adicionar novo material no banco
-  const adicionarMaterial = async (material: Omit<Material, 'id' | 'data_registro'>) => {
+  const adicionarMaterial = async (novoMaterial: MaterialDTO) => {
     try {
-      const { error } = await supabase
-        .from('materiais')
-        .insert([material]);
-
-      if (error) throw error;
-      await carregarMateriais();
+      await materiaisService.criar(novoMaterial);
+      await carregarMateriais(); // Recarrega a lista após o sucesso
     } catch (error) {
-      console.error('Erro ao adicionar material:', error);
+      console.error(error);
       throw error;
     }
   };
 
-  // 3. Atualizar a quantidade (usado no + / - e nas baixas de estoque)
   const atualizarQuantidade = async (id: string, novaQuantidade: number) => {
+    // Atualização Otimista (Muda logo no ecrã para parecer mais rápido ao utilizador)
+    setMateriais(prev => prev.map(m => m.id === id ? { ...m, quantidade: novaQuantidade } : m));
+    
     try {
-      const { error } = await supabase
-        .from('materiais')
-        .update({ quantidade: novaQuantidade })
-        .eq('id', id);
-        
-      if (error) throw error;
-      
-      // Atualiza o estado local para a UI refletir na hora
-      setMateriais(prev => prev.map(m => m.id === id ? { ...m, quantidade: novaQuantidade } : m));
+      await materiaisService.atualizarQuantidade(id, novaQuantidade);
     } catch (error) {
-      console.error('Erro ao atualizar quantidade:', error);
+      console.error(error);
+      await carregarMateriais(); // Se falhar no banco, desfaz a alteração visual
     }
   };
 
-  // 4. Excluir material do banco
   const excluirMaterial = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('materiais')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      await carregarMateriais();
+      await materiaisService.excluir(id);
+      setMateriais(prev => prev.filter(m => m.id !== id)); // Remove localmente sem precisar recarregar tudo
     } catch (error) {
-      console.error('Erro ao excluir material:', error);
+      console.error(error);
       throw error;
     }
   };
 
+  // Carrega os materiais logo que a aplicação inicia
   useEffect(() => {
     carregarMateriais();
-  }, []);
+  }, [carregarMateriais]);
 
   return (
     <MateriaisContext.Provider
@@ -114,7 +92,7 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
 export function useMateriais() {
   const context = useContext(MateriaisContext);
   if (context === undefined) {
-    throw new Error('useMateriais deve ser usado dentro de MateriaisProvider');
+    throw new Error('useMateriais deve ser usado dentro de um MateriaisProvider');
   }
   return context;
 }

@@ -1,19 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../../../utils/supabase/supabaseClient';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { emprestimosService } from '../services/emprestimosService';
+import { Emprestimo, NovaSaidaDTO } from '../types/index';
 
-export interface Emprestimo {
-  id: string;
-  usuario: string; 
-  materialSolicitado: string;
-  material_categoria: 'mecanico' | 'eletrico';
-  gerencia: string;
-  quantidade: number;
-  status: 'Pendente' | 'Devolvido';
-  data_saida: string;
-  observacao?: string;
-  data_devolucao?: string;
-  responsavel_recebimento?: string;
-}
+// Para o React, usamos a interface EmprestimoDTO importada do nosso serviço
+export type Emprestimo = EmprestimoDTO;
 
 interface EmprestimosContextType {
   emprestimos: Emprestimo[];
@@ -29,106 +19,42 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  const carregarEmprestimos = async () => {
+  const carregarEmprestimos = useCallback(async () => {
     setCarregando(true);
     try {
-      const { data, error } = await supabase
-        .from('emprestimos')
-        .select('*')
-        .order('data_saida', { ascending: false });
-
-      if (error) throw error;
-      setEmprestimos(data as Emprestimo[] || []);
+      const dados = await emprestimosService.obterTodos();
+      setEmprestimos(dados as Emprestimo[]);
     } catch (error) {
-      console.error('Erro ao carregar empréstimos:', error);
+      console.error(error);
     } finally {
       setCarregando(false);
     }
-  };
+  }, []);
 
   const adicionarEmprestimo = async (novaSaida: Omit<Emprestimo, 'id' | 'status'>, materialId?: string) => {
     try {
-      const { error: errEmprestimo } = await supabase
-        .from('emprestimos')
-        .insert([{ 
-          ...novaSaida,
-          status: 'Pendente',
-          materialSolicitado: novaSaida.materialSolicitado, 
-          material_categoria: novaSaida.material_categoria, 
-          gerencia: novaSaida.gerencia, 
-        }]);
-
-      if (errEmprestimo) throw errEmprestimo;
-
-      const materialQuery = supabase
-        .from('materiais')
-        .select('id, quantidade');
-
-      if (materialId) {
-        materialQuery.eq('id', materialId);
-      } else {
-        materialQuery.ilike('nome', novaSaida.materialSolicitado);
-      }
-
-      const { data: materialData, error: errMaterial } = await materialQuery.maybeSingle();
-
-      if (errMaterial) {
-        console.error('Erro ao buscar material para atualizar estoque:', errMaterial);
-      } else if (materialData) {
-        // GARANTIA: Usamos Number() para garantir que é matemática (ex: 5 - 1 = 4)
-        const novaQnt = Math.max(0, Number(materialData.quantidade) - Number(novaSaida.quantidade));
-        await supabase
-          .from('materiais')
-          .update({ quantidade: novaQnt })
-          .eq('id', materialData.id);
-      }
-
-      await carregarEmprestimos();
+      // Chama o serviço que faz todo o trabalho pesado no Supabase
+      await emprestimosService.registrarSaida(novaSaida, materialId);
+      await carregarEmprestimos(); // Recarrega a lista
     } catch (error) {
-      console.error('Erro ao registrar saída:', error);
+      console.error(error);
       throw error;
     }
   };
 
   const marcarComoDevolvido = async (emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string }) => {
     try {
-      const { error: errUpdate } = await supabase
-        .from('emprestimos')
-        .update({ 
-          status: 'Devolvido',
-          data_devolucao: dadosDevolucao.data_devolucao,
-          responsavel_recebimento: dadosDevolucao.responsavel_recebimento
-        })
-        .eq('id', emprestimo.id);
-
-      if (errUpdate) throw errUpdate;
-
-      const { data: materialData, error: errMaterial } = await supabase
-        .from('materiais')
-        .select('id, quantidade')
-        .ilike('nome', emprestimo.materialSolicitado)
-        .maybeSingle();
-
-      if (errMaterial) {
-        console.error('Erro ao buscar material para devolver:', errMaterial);
-      } else if (materialData) {
-        // GARANTIA: Usamos Number() para não juntar as strings (ex: evitar que 5 + 1 vire 51)
-        const novaQnt = Math.max(0, Number(materialData.quantidade) + Number(emprestimo.quantidade));
-        await supabase
-          .from('materiais')
-          .update({ quantidade: novaQnt })
-          .eq('id', materialData.id);
-      }
-
-      await carregarEmprestimos();
+      // Chama o serviço que faz a devolução e repõe o stock
+      await emprestimosService.registrarDevolucao(emprestimo, dadosDevolucao);
+      await carregarEmprestimos(); // Recarrega a lista
     } catch (error) {
-      console.error('Erro ao devolver material:', error);
+      console.error(error);
     }
   };
 
   useEffect(() => {
     carregarEmprestimos();
-  }, []);
+  }, [carregarEmprestimos]);
 
   return (
     <EmprestimosContext.Provider

@@ -1,14 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../../../utils/supabase/supabaseClient';
-
-interface User {
-  id: string;
-  nome: string;
-  matricula: string;
-}
+import { authService } from '../services/authService';
+import { UsuarioLogado } from '../types/index';
 
 interface AuthContextType {
-  user: User | null;
+  user: UsuarioLogado | null;
   login: (matricula: string, senha: string) => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
   cadastrar: (nome: string, matricula: string, senha: string) => Promise<{ error: string | null }>;
@@ -18,37 +13,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Domínio invisível usado apenas para fazer o Supabase aceitar a matrícula como "email"
-const DOMINIO_SISTEMA = '@ferramentaria.local';
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UsuarioLogado | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Verifica se já existe um usuário logado ao abrir a página
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          nome: session.user.user_metadata?.nome || 'Usuário',
-          matricula: session.user.user_metadata?.matricula || '',
-        });
-      }
+    // 1. Verifica a sessão inicial através do serviço
+    authService.obterSessaoAtual().then(usuario => {
+      setUser(usuario);
       setLoading(false);
     });
 
-    // 2. Fica escutando mudanças (quando o usuário faz login ou logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          nome: session.user.user_metadata?.nome || 'Usuário',
-          matricula: session.user.user_metadata?.matricula || '',
-        });
-      } else {
-        setUser(null);
-      }
+    // 2. Fica a escutar mudanças de estado (login/logout em outras abas)
+    const subscription = authService.observarEstadoAuth((usuario) => {
+      setUser(usuario);
       setLoading(false);
     });
 
@@ -57,57 +35,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (matricula: string, senha: string) => {
     try {
-      // Transforma a matrícula em um formato de email para o Supabase
-      const emailFake = `${matricula}${DOMINIO_SISTEMA}`;
-      
-      const { error } = await supabase.auth.signInWithPassword({
-        email: emailFake,
-        password: senha,
-      });
-      
-      if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          return { error: 'Matrícula ou senha incorretos.' };
-        }
-        return { error: 'Erro ao fazer login: ' + error.message };
-      }
+      await authService.login(matricula, senha);
       return { error: null };
-    } catch (err) {
-      return { error: 'Erro inesperado ao fazer login.' };
+    } catch (err: any) {
+      return { error: err.message || 'Erro inesperado ao fazer login.' };
     }
   };
 
   const cadastrar = async (nome: string, matricula: string, senha: string) => {
     try {
-      const emailFake = `${matricula}${DOMINIO_SISTEMA}`;
-      
-      const { error } = await supabase.auth.signUp({
-        email: emailFake,
-        password: senha,
-        options: {
-          data: {
-            nome: nome,
-            matricula: matricula
-          }
-        }
-      });
-
-      if (error) {
-        if (error.message.includes('User already registered')) {
-          return { error: 'Esta matrícula já está cadastrada no sistema.' };
-        }
-        return { error: 'Erro ao cadastrar: ' + error.message };
-      }
-      
+      await authService.cadastrar(nome, matricula, senha);
       return { error: null };
-    } catch (err) {
-      return { error: 'Erro inesperado ao cadastrar.' };
+    } catch (err: any) {
+      return { error: err.message || 'Erro inesperado ao cadastrar.' };
     }
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    try {
+      await authService.logout();
+      setUser(null);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
