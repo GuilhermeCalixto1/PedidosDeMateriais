@@ -3,8 +3,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { EmprestimosProvider } from './contexts/EmprestimosContext';
 import { MateriaisProvider } from './contexts/MateriaisContext';
 import { LoginPage } from './components/LoginPage';
-import { ControleFerramentaria } from './components/ControleFerramentaria';
-import { GerenciamentoMateriais } from './components/GerenciamentoMateriais';
+import { ControleFerramentaria } from './features/emprestimos/ControleFerramentaria';
+import { GerenciamentoMateriais } from './features/estoque/GerenciamentoMateriais';
 import { Button } from './components/ui/button';
 import { Package, ClipboardList } from 'lucide-react';
 

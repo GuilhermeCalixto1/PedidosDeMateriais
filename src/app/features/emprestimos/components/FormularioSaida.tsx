@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { useEmprestimos } from '../contexts/EmprestimosContext';
-import { useMateriais } from '../contexts/MateriaisContext';
-import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Badge } from './ui/badge';
-import { Alert, AlertDescription } from './ui/alert';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Textarea } from './ui/textarea';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useEmprestimos } from '../../../contexts/EmprestimosContext';
+import { useMateriais } from '../../../contexts/MateriaisContext';
+import { Button } from '../../../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Badge } from '../../../components/ui/badge';
+import { Alert, AlertDescription } from '../../../components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
+import { Textarea } from '../../../components/ui/textarea';
 import { X, Search, Wrench, Zap, AlertCircle } from 'lucide-react';
 
 interface FormularioSaidaProps {
