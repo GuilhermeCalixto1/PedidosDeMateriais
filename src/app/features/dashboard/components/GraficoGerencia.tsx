@@ -23,7 +23,7 @@ export function GraficoGerencia() {
   }, [emprestimos]);
 
   return (
-    <Card className="shadow-sm lg:col-span-2">
+    <Card className="shadow-sm">
       <CardHeader className="flex flex-row items-center gap-2">
         <Building2 className="size-5 text-emerald-600" />
         <CardTitle className="text-lg">Materiais em Posse por Gerência (Ativos)</CardTitle>
