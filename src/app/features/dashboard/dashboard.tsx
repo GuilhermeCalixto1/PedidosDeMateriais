@@ -12,20 +12,14 @@ export function Dashboard() {
 
   const [periodoStatus, setPeriodoStatus] = useState('total');
 
-  // 1. Cálculos de Estoque Corrigidos
+  // 1. Cálculos de Estoque
   const stats = useMemo(() => {
-    // 1.1. Estoque Disponível: A soma do que está fisicamente nas prateleiras
     const estoqueDisponivel = materiais.reduce((acc, curr) => acc + curr.quantidade, 0);
-
-    // 1.2. Unidades Emprestadas: A soma das quantidades que estão em posse dos funcionários
     const unidadesEmprestadas = emprestimos
       .filter(e => e.status === 'Pendente')
       .reduce((acc, curr) => acc + (Number(curr.quantidade) || 0), 0);
 
-    // 1.3. Patrimônio Total: O que a empresa possui no total (Prateleira + Fora)
     const estoqueTotal = estoqueDisponivel + unidadesEmprestadas;
-
-    // Outros dados mantidos
     const emprestimosAtivos = emprestimos.filter(e => e.status === 'Pendente').length;
     const ferramentasEletricas = materiais.filter(m => m.categoria === 'eletrico').length;
     const ferramentasMecanicas = materiais.filter(m => m.categoria === 'mecanico').length;
@@ -56,7 +50,7 @@ export function Dashboard() {
       .sort((a, b) => b.unidades - a.unidades);
   }, [emprestimos]);
 
-  // 3. DADOS COM FILTRO: Pendentes vs Devolvidos (Unidades)
+  // 3. DADOS COM FILTRO: Pendentes vs Devolvidos
   const dadosStatus = useMemo(() => {
     let filtrados = emprestimos;
     
@@ -96,7 +90,7 @@ export function Dashboard() {
   
   const CORES_STATUS = ['#eab308', '#22c55e'];
 
-  // 4. Dados: Top 5 Itens Mais Retirados (Soma de unidades históricas)
+  // 4. Dados: Top 5 Itens Mais Retirados
   const dadosTopEmprestimos = useMemo(() => {
     const contagem: Record<string, number> = {};
     emprestimos.forEach(e => {
@@ -110,13 +104,6 @@ export function Dashboard() {
       .slice(0, 5);
   }, [emprestimos]);
 
-  // 5. Dados: Distribuição por Categoria
-  const dadosCategorias = [
-    { name: 'Mecânico', value: stats.ferramentasMecanicas },
-    { name: 'Elétrico', value: stats.ferramentasEletricas }
-  ];
-  const CORES_CATEGORIAS = ['#f97316', '#a855f7'];
-
   return (
     <div className="space-y-6">
       <div>
@@ -124,10 +111,9 @@ export function Dashboard() {
         <p className="text-gray-600 mt-1">Indicadores de desempenho e controle de estoque</p>
       </div>
 
-      {/* CARDS DE RESUMO - Agora com 5 colunas para separar os dados */}
+      {/* CARDS DE RESUMO */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         
-        {/* NOVO: PATRIMÔNIO TOTAL */}
         <Card className="bg-white shadow-sm border-t-4 border-t-blue-600">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Patrimônio Total</CardTitle>
@@ -139,7 +125,6 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* CORRIGIDO: ESTOQUE DISPONÍVEL */}
         <Card className="bg-white shadow-sm border-t-4 border-t-green-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Estoque Disponível</CardTitle>
@@ -151,7 +136,6 @@ export function Dashboard() {
           </CardContent>
         </Card>
         
-        {/* NOVO: EM USO (FORA) */}
         <Card className="bg-white shadow-sm border-t-4 border-t-yellow-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Em Uso (Fora)</CardTitle>
@@ -163,7 +147,6 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* MODELOS CADASTRADOS */}
         <Card className="bg-white shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Modelos de Itens</CardTitle>
@@ -175,7 +158,6 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* STATUS OPERACIONAL */}
         <Card className={`shadow-sm ${stats.emprestimosAtivos > 15 ? 'bg-red-50' : 'bg-white'}`}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Fluxo de Pedidos</CardTitle>
@@ -193,7 +175,7 @@ export function Dashboard() {
       {/* ÁREA DOS GRÁFICOS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* 1. MATERIAIS COM A GERÊNCIA (PENDENTES) */}
+        {/* 1. MATERIAIS COM A GERÊNCIA */}
         <Card className="shadow-sm lg:col-span-2">
           <CardHeader className="flex flex-row items-center gap-2">
             <Building2 className="size-5 text-emerald-600" />
@@ -216,10 +198,10 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* 2. GRÁFICO: STATUS DE DEVOLUÇÕES COM FILTRO */}
+        {/* 2. GRÁFICO: STATUS DE DEVOLUÇÕES (AGORA COM PORCENTAGEM) */}
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-start sm:items-center justify-between gap-2 pb-2">
-            <CardTitle className="text-lg">Taxa de Devolução (Unidades)</CardTitle>
+            <CardTitle className="text-lg">Taxa de Devolução (%)</CardTitle>
             <Select value={periodoStatus} onValueChange={setPeriodoStatus}>
               <SelectTrigger className="w-[140px] h-8 text-xs bg-gray-50">
                 <SelectValue placeholder="Período" />
@@ -241,17 +223,27 @@ export function Dashboard() {
                     data={dadosStatus}
                     cx="50%"
                     cy="50%"
-                    innerRadius={65}
-                    outerRadius={100}
+                    innerRadius={60}
+                    outerRadius={90}
                     paddingAngle={3}
                     dataKey="value"
                     stroke="none"
+                    labelLine={true}
+                    // A MÁGICA AQUI: Mostra a percentagem diretamente com uma linha a apontar para a fatia
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                   >
                     {dadosStatus.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={CORES_STATUS[index % CORES_STATUS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [`${value} unidades`, 'Quantidade']} />
+                  {/* O TOOLTIP também foi melhorado para mostrar as duas informações juntas */}
+                  <Tooltip 
+                    formatter={(value: number) => {
+                      const total = dadosStatus.reduce((acc, curr) => acc + curr.value, 0);
+                      const perc = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                      return [`${perc}% (${value} unid.)`, 'Proporção'];
+                    }} 
+                  />
                   <Legend verticalAlign="bottom" height={36}/>
                 </PieChart>
               </ResponsiveContainer>
