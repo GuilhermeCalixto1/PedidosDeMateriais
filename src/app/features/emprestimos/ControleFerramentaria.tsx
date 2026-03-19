@@ -1,19 +1,20 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEmprestimos } from '../../contexts/EmprestimosContext';
 import { useMateriais } from '../../contexts/MateriaisContext'; 
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Plus, Package, Printer } from 'lucide-react';
+import { Badge } from '../../components/ui/badge';
+import { Plus, Package, Printer, User, Building2, Calendar, Clock, CheckCircle2, Wrench, Zap, PackageOpen } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Os nossos componentes refatorados!
+// Componentes Importados
 import { FormularioSaida } from './components/FormularioSaida';
-import { CartaoEmprestimo } from './components/CartaoEmprestimo'; 
 import { TabelaImpressao } from './components/TabelaImpressao'; 
 import { FiltrosEmprestimo } from './components/FiltrosEmprestimo';
-import { ModalDevolucao } from './components/ModalDevolucao'; // IMPORTÁMOS O MODAL
+import { ModalDevolucao } from './components/ModalDevolucao';
+import { ReciboImpressao } from './components/ReciboImpressao'; // NOVO IMPORT!
 
 export function ControleFerramentaria() {
   const { user } = useAuth();
@@ -24,28 +25,34 @@ export function ControleFerramentaria() {
   const [abaAtiva, setAbaAtiva] = useState<'todos' | 'Pendente' | 'Devolvido'>('Pendente');
   const [processando, setProcessando] = useState(false);
   
-  // Estados partilhados para os Filtros
+  // Estado para controlar se vamos imprimir um recibo individual
+  const [grupoParaImprimir, setGrupoParaImprimir] = useState<any>(null);
+
+  // Limpa o estado de impressão individual depois da janela de impressão fechar
+  useEffect(() => {
+    const handleAfterPrint = () => setGrupoParaImprimir(null);
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => window.removeEventListener('afterprint', handleAfterPrint);
+  }, []);
+  
+  // Estados para os Filtros
   const [buscaTexto, setBuscaTexto] = useState('');
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
   const [filtroGerencia, setFiltroGerencia] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('todas');
 
-  // Estados partilhados para a Devolução
+  // Estados para a Devolução
   const [emprestimoParaDevolver, setEmprestimoParaDevolver] = useState<any>(null);
   const [dataDevolucao, setDataDevolucao] = useState(() => new Date().toISOString().split('T')[0]);
   const [nomeRecebedor, setNomeRecebedor] = useState('');
   const [matriculaRecebedor, setMatriculaRecebedor] = useState('');
 
-  // Lógica de filtragem dos dados
+  // 1. FILTRAGEM ROBUSTA
   const emprestimosFiltrados = useMemo(() => {
     let resultado = emprestimos;
-
-    if (abaAtiva === 'Pendente') {
-      resultado = resultado.filter(e => e.status === 'Pendente');
-    } else if (abaAtiva === 'Devolvido') {
-      resultado = resultado.filter(e => e.status === 'Devolvido');
-    }
+    if (abaAtiva === 'Pendente') resultado = resultado.filter(e => e.status === 'Pendente');
+    else if (abaAtiva === 'Devolvido') resultado = resultado.filter(e => e.status === 'Devolvido');
 
     if (buscaTexto.trim() !== '') {
       const termoBusca = buscaTexto.toLowerCase();
@@ -54,103 +61,107 @@ export function ControleFerramentaria() {
         (e.materialSolicitado && e.materialSolicitado.toLowerCase().includes(termoBusca)) 
       );
     }
-
     if (filtroDataInicio !== '' || filtroDataFim !== '') {
       resultado = resultado.filter(e => {
         if (!e.data_saida) return false;
         const dataEmprestimo = e.data_saida.split('T')[0];
-
-        if (filtroDataInicio !== '' && filtroDataFim !== '') {
-          return dataEmprestimo >= filtroDataInicio && dataEmprestimo <= filtroDataFim;
-        } else if (filtroDataInicio !== '') {
-          return dataEmprestimo === filtroDataInicio;
-        } else if (filtroDataFim !== '') {
-          return dataEmprestimo === filtroDataFim;
-        }
+        if (filtroDataInicio !== '' && filtroDataFim !== '') return dataEmprestimo >= filtroDataInicio && dataEmprestimo <= filtroDataFim;
+        else if (filtroDataInicio !== '') return dataEmprestimo === filtroDataInicio;
+        else if (filtroDataFim !== '') return dataEmprestimo === filtroDataFim;
         return true;
       });
     }
-
     if (filtroGerencia.trim() !== '') {
       const termoGerencia = filtroGerencia.toLowerCase();
-      resultado = resultado.filter(e => 
-        e.gerencia && e.gerencia.toLowerCase().includes(termoGerencia)
-      );
+      resultado = resultado.filter(e => e.gerencia && e.gerencia.toLowerCase().includes(termoGerencia));
     }
-
     if (filtroCategoria !== 'todas') {
       resultado = resultado.filter(e => e.material_categoria === filtroCategoria);
     }
-
     return resultado;
   }, [emprestimos, abaAtiva, buscaTexto, filtroDataInicio, filtroDataFim, filtroGerencia, filtroCategoria]);
 
-  const pendentesParaImprimir = useMemo(() => {
-    return emprestimosFiltrados.filter(e => e.status === 'Pendente');
+  // 2. AGRUPAMENTO VISUAL
+  const gruposDeEmprestimo = useMemo(() => {
+    const mapa = new Map<string, any>();
+    emprestimosFiltrados.forEach(emp => {
+      const chave = `${emp.usuario}|${emp.data_saida}|${emp.status}`;
+      if (!mapa.has(chave)) {
+        mapa.set(chave, {
+          id: chave,
+          usuario: emp.usuario,
+          data_saida: emp.data_saida,
+          gerencia: emp.gerencia || 'Não informada',
+          status: emp.status,
+          itens: [] 
+        });
+      }
+      mapa.get(chave).itens.push(emp);
+    });
+    return Array.from(mapa.values()).sort((a, b) => new Date(b.data_saida).getTime() - new Date(a.data_saida).getTime());
   }, [emprestimosFiltrados]);
 
+  // Helpers
+  const pendentesParaImprimir = useMemo(() => emprestimosFiltrados.filter(e => e.status === 'Pendente'), [emprestimosFiltrados]);
   const contadores = useMemo(() => ({
     todos: emprestimos.length,
     pendente: emprestimos.filter(e => e.status === 'Pendente').length,
     devolvido: emprestimos.filter(e => e.status === 'Devolvido').length,
   }), [emprestimos]);
+  const temFiltroAtivo = buscaTexto !== '' || filtroDataInicio !== '' || filtroDataFim !== '' || filtroGerencia !== '' || filtroCategoria !== 'todas';
+
+  const formatarData = (dataStr: string) => {
+    if (!dataStr) return '';
+    const partes = dataStr.split('-');
+    if (partes.length !== 3) return dataStr;
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  };
 
   const limparFiltros = () => {
-    setBuscaTexto('');
-    setFiltroDataInicio('');
-    setFiltroDataFim('');
-    setFiltroGerencia('');
-    setFiltroCategoria('todas');
+    setBuscaTexto(''); setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroGerencia(''); setFiltroCategoria('todas');
   };
 
   const abrirModalDevolucao = (emprestimo: any) => {
     setEmprestimoParaDevolver(emprestimo);
-    if (user) {
-      setNomeRecebedor(user.nome);
-      setMatriculaRecebedor(user.matricula);
-    }
+    if (user) { setNomeRecebedor(user.nome); setMatriculaRecebedor(user.matricula); }
     setDataDevolucao(new Date().toISOString().split('T')[0]);
   };
 
- const confirmarDevolucao = async () => {
+  const confirmarDevolucao = async () => {
     if (!emprestimoParaDevolver || !nomeRecebedor || !matriculaRecebedor) return;
-    
     setProcessando(true);
-    const responsavel = `${nomeRecebedor} (Mat: ${matriculaRecebedor})`;
-    
     try {
       await marcarComoDevolvido(emprestimoParaDevolver, {
         data_devolucao: dataDevolucao,
-        responsavel_recebimento: responsavel
+        responsavel_recebimento: `${nomeRecebedor} (Mat: ${matriculaRecebedor})`
       });
-      
-      if (recarregarMateriais) {
-        await recarregarMateriais();
-      }
-      
-      // SUCESSO!
-      toast.success(`A ferramenta "${emprestimoParaDevolver.materialSolicitado}" foi devolvida com sucesso!`);
-      
-      setEmprestimoParaDevolver(null);
-      setNomeRecebedor('');
-      setMatriculaRecebedor('');
+      if (recarregarMateriais) await recarregarMateriais();
+      toast.success(`"${emprestimoParaDevolver.materialSolicitado}" devolvido com sucesso!`);
+      setEmprestimoParaDevolver(null); setNomeRecebedor(''); setMatriculaRecebedor('');
     } catch (error) {
-      // ERRO!
-      toast.error('Ocorreu um erro ao tentar registar a devolução. Verifique a sua ligação.');
+      toast.error('Erro ao registar devolução.');
     } finally {
       setProcessando(false);
     }
   };
 
-  const handleImprimir = () => {
-    window.print();
+  // Funções de Impressão
+  const handleImprimirListaGeral = () => {
+    setGrupoParaImprimir(null); // Garante que a Lista Geral seja impressa
+    setTimeout(() => window.print(), 100);
   };
 
-  const temFiltroAtivo = buscaTexto !== '' || filtroDataInicio !== '' || filtroDataFim !== '' || filtroGerencia !== '' || filtroCategoria !== 'todas';
+  const handleImprimirReciboIndividual = (grupo: any) => {
+    setGrupoParaImprimir(grupo); // Configura o recibo específico
+    setTimeout(() => window.print(), 100);
+  };
+
+  if (carregando) return <div className="p-8 text-center text-gray-500">A carregar dados do sistema...</div>;
 
   return (
     <>
       <div className="space-y-6 print:hidden">
+        
         {/* Cabeçalho */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -158,16 +169,16 @@ export function ControleFerramentaria() {
             <p className="text-gray-600 mt-1">Gerencie saídas e devoluções de materiais</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <Button onClick={handleImprimir} variant="outline" className="w-full sm:w-auto">
+            <Button onClick={handleImprimirListaGeral} variant="outline" className="w-full sm:w-auto bg-white">
               <Printer className="size-4 mr-2" /> Imprimir Pendentes Filtrados
             </Button>
-            <Button onClick={() => setMostrarFormulario(true)} size="default" className="w-full sm:w-auto">
+            <Button onClick={() => setMostrarFormulario(true)} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700">
               <Plus className="size-5 mr-2" /> Nova Saída
             </Button>
           </div>
         </div>
 
-        {/* Corpo Principal (Abas) */}
+        {/* Abas */}
         <Tabs value={abaAtiva} onValueChange={(v) => setAbaAtiva(v as typeof abaAtiva)} className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="Pendente">Pendentes ({contadores.pendente})</TabsTrigger>
@@ -185,26 +196,92 @@ export function ControleFerramentaria() {
           />
 
           <TabsContent value={abaAtiva} className="mt-0">
-            {emprestimosFiltrados.length === 0 ? (
-              <Card>
+            {gruposDeEmprestimo.length === 0 ? (
+              <Card className="border-dashed border-2">
                 <CardContent className="py-12 text-center">
-                  <Package className="size-12 mx-auto text-gray-400 mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhum empréstimo encontrado</h3>
-                  <p className="text-gray-600 mb-4">Nenhum resultado para exibir com os filtros atuais.</p>
-                  {temFiltroAtivo && (
-                    <Button variant="outline" onClick={limparFiltros}>Limpar Filtros</Button>
-                  )}
+                  <PackageOpen className="size-12 mx-auto text-gray-300 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Nenhum empréstimo encontrado</h3>
+                  <p className="text-gray-500 mb-4">Não há resultados para exibir com os filtros atuais.</p>
+                  {temFiltroAtivo && <Button variant="outline" onClick={limparFiltros}>Limpar Filtros</Button>}
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-4">
-                {emprestimosFiltrados.map((emprestimo) => (
-                  <CartaoEmprestimo 
-                    key={emprestimo.id} 
-                    emprestimo={emprestimo} 
-                    onAbrirDevolucao={() => abrirModalDevolucao(emprestimo)} 
-                    processando={processando} 
-                  />
+              <div className="space-y-4">
+                {gruposDeEmprestimo.map((grupo) => (
+                  <div key={grupo.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all hover:shadow-md">
+                    
+                    {/* Cabeçalho do Cartão Agrupado */}
+                    <div className="bg-gray-50/80 px-5 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                          <div className="bg-blue-100 p-1.5 rounded-md"><User className="size-4 text-blue-600" /></div>
+                          {grupo.usuario}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 mt-2">
+                          <span className="flex items-center gap-1"><Building2 className="size-3.5 text-gray-400" /> {grupo.gerencia}</span>
+                          <span className="flex items-center gap-1"><Calendar className="size-3.5 text-gray-400" /> {formatarData(grupo.data_saida)}</span>
+                          <span className="flex items-center gap-1 font-medium text-blue-600">• {grupo.itens.length} {grupo.itens.length === 1 ? 'item' : 'itens'}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Badge e Botão de Imprimir Recibo Individual */}
+                      <div className="flex items-center gap-3">
+                        <Badge className={`px-3 py-1 text-xs uppercase tracking-wider font-semibold ${
+                          grupo.status === 'Pendente' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-green-100 text-green-800 border-green-200'
+                        }`}>
+                          {grupo.status === 'Pendente' ? <Clock className="size-3 mr-1.5" /> : <CheckCircle2 className="size-3 mr-1.5" />}
+                          {grupo.status}
+                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          title="Imprimir Recibo Assinado"
+                          onClick={() => handleImprimirReciboIndividual(grupo)}
+                          className="h-8 w-8 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+                        >
+                          <Printer className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Lista de Ferramentas dentro do Cartão */}
+                    <div className="divide-y divide-gray-100">
+                      {grupo.itens.map((item: any) => (
+                        <div key={item.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-blue-50/20 transition-colors">
+                          <div className="flex items-start sm:items-center gap-3">
+                            <div className={`p-2.5 rounded-lg border ${
+                              item.material_categoria === 'mecanico' ? 'bg-orange-50 border-orange-100 text-orange-600' : 'bg-purple-50 border-purple-100 text-purple-600'
+                            }`}>
+                              {item.material_categoria === 'mecanico' ? <Wrench className="size-5" /> : <Zap className="size-5" />}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">{item.materialSolicitado}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <Badge variant="outline" className="text-xs bg-white">Qtd: {item.quantidade}</Badge>
+                                {item.observacao && <span className="text-xs text-gray-500 italic border-l pl-3">Obs: {item.observacao}</span>}
+                                {item.status === 'Devolvido' && item.data_devolucao && (
+                                  <span className="text-xs text-green-600 font-medium border-l pl-3 flex items-center gap-1">
+                                    <CheckCircle2 className="size-3" /> Devolvido em {formatarData(item.data_devolucao)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {item.status === 'Pendente' && (
+                            <Button 
+                              variant="outline" size="sm" 
+                              onClick={() => abrirModalDevolucao(item)} 
+                              className="w-full sm:w-auto text-blue-600 border-blue-200 hover:bg-blue-50"
+                            >
+                              Devolver Item
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                  </div>
                 ))}
               </div>
             )}
@@ -212,28 +289,29 @@ export function ControleFerramentaria() {
         </Tabs>
 
         {emprestimosFiltrados.length > 0 && (
-          <div className="text-center text-sm text-gray-600">
-            Exibindo {emprestimosFiltrados.length} itens
+          <div className="text-center text-sm text-gray-500 pb-4">
+            Exibindo {emprestimosFiltrados.length} itens (agrupados em {gruposDeEmprestimo.length} registos)
           </div>
         )}
 
-        {/* Componentes Flutuantes (Modais) */}
         {mostrarFormulario && <FormularioSaida onFechar={() => setMostrarFormulario(false)} />}
       </div>
 
       <ModalDevolucao 
-        emprestimo={emprestimoParaDevolver}
-        dataDevolucao={dataDevolucao}
-        setDataDevolucao={setDataDevolucao}
-        nomeRecebedor={nomeRecebedor}
-        matriculaRecebedor={matriculaRecebedor}
-        processando={processando}
-        onConfirmar={confirmarDevolucao}
-        onCancelar={() => setEmprestimoParaDevolver(null)}
+        emprestimo={emprestimoParaDevolver} dataDevolucao={dataDevolucao} setDataDevolucao={setDataDevolucao}
+        nomeRecebedor={nomeRecebedor} matriculaRecebedor={matriculaRecebedor}
+        processando={processando} onConfirmar={confirmarDevolucao} onCancelar={() => setEmprestimoParaDevolver(null)}
       />
 
-      {/* Tabela Escondida (Apenas para Impressão) */}
-      <TabelaImpressao pendentes={pendentesParaImprimir} temFiltroAtivo={temFiltroAtivo} />
+      {/* LÓGICA DE IMPRESSÃO INTELIGENTE:
+          Se houver um grupoSelecionado, imprime apenas o Recibo com as Assinaturas.
+          Se NÃO houver (ou seja, o utilizador clicou no botão Imprimir Geral lá em cima), imprime a TabelaClássica.
+      */}
+      {grupoParaImprimir ? (
+        <ReciboImpressao grupo={grupoParaImprimir} />
+      ) : (
+        <TabelaImpressao pendentes={pendentesParaImprimir} temFiltroAtivo={temFiltroAtivo} />
+      )}
     </>
   );
 }

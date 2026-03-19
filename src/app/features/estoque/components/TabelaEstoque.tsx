@@ -16,17 +16,9 @@ export function TabelaEstoque({ materiais, carregando, onAtualizarQuantidade, on
   
   const getCategoriaBadge = (categoria: 'mecanico' | 'eletrico') => {
     if (categoria === 'eletrico') {
-      return (
-        <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">
-          <Zap className="size-3 mr-1" /> Elétrico
-        </Badge>
-      );
+      return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200"><Zap className="size-3 mr-1" /> Elétrico</Badge>;
     }
-    return (
-      <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
-        <Wrench className="size-3 mr-1" /> Mecânico
-      </Badge>
-    );
+    return <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200"><Wrench className="size-3 mr-1" /> Mecânico</Badge>;
   };
 
   return (
@@ -48,7 +40,12 @@ export function TabelaEstoque({ materiais, carregando, onAtualizarQuantidade, on
               <TableRow>
                 <TableHead>Nome da Ferramenta</TableHead>
                 <TableHead>Categoria</TableHead>
-                <TableHead className="text-center w-[200px]">Ajuste de Estoque</TableHead>
+                {/* 3 NOVAS COLUNAS CLARAS */}
+                <TableHead className="text-center bg-gray-100/50">Patrimônio Total</TableHead>
+                <TableHead className="text-center bg-yellow-50/50">Em Uso (Fora)</TableHead>
+                <TableHead className="text-center bg-green-50/50">Disponível (Prateleira)</TableHead>
+                
+                <TableHead className="text-center w-[180px]">Ajuste Disponível</TableHead>
                 <TableHead className="text-right">Ação</TableHead>
               </TableRow>
             </TableHeader>
@@ -57,41 +54,46 @@ export function TabelaEstoque({ materiais, carregando, onAtualizarQuantidade, on
                 <TableRow key={material.id}>
                   <TableCell className="font-medium">{material.nome}</TableCell>
                   <TableCell>{getCategoriaBadge(material.categoria)}</TableCell>
+                  
+                  {/* COLUNA: TOTAL */}
+                  <TableCell className="text-center font-bold text-gray-700 bg-gray-50/30">
+                    {material.total}
+                  </TableCell>
+                  
+                  {/* COLUNA: EM USO */}
+                  <TableCell className="text-center font-bold text-yellow-600 bg-yellow-50/30">
+                    {material.emUso > 0 ? material.emUso : '-'}
+                  </TableCell>
+
+                  {/* COLUNA: DISPONIVEL (Prateleira) */}
+                  <TableCell className="text-center">
+                    <Badge variant="outline" className={`text-sm px-3 py-1 ${material.quantidade === 0 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                      {material.quantidade}
+                    </Badge>
+                  </TableCell>
+
+                  {/* AJUSTE MANUAL (Apenas do Disponível) */}
                   <TableCell>
-                    <div className="flex items-center justify-center gap-3">
+                    <div className="flex items-center justify-center gap-2">
                       <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="h-8 w-8 rounded-full"
+                        variant="outline" size="icon" className="h-7 w-7 rounded-full text-red-600 hover:bg-red-50"
                         onClick={() => onAtualizarQuantidade(material.id, material.quantidade - 1)}
                         disabled={material.quantidade <= 0}
                       >
-                        <Minus className="size-4" />
+                        <Minus className="size-3" />
                       </Button>
                       
-                      <div className="min-w-[40px] text-center">
-                        <span className={`text-lg font-bold ${material.quantidade === 0 ? 'text-red-500' : 'text-gray-900'}`}>
-                          {material.quantidade}
-                        </span>
-                      </div>
-
                       <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="h-8 w-8 rounded-full text-blue-600 border-blue-200 hover:bg-blue-50"
+                        variant="outline" size="icon" className="h-7 w-7 rounded-full text-blue-600 hover:bg-blue-50"
                         onClick={() => onAtualizarQuantidade(material.id, material.quantidade + 1)}
                       >
-                        <Plus className="size-4" />
+                        <Plus className="size-3" />
                       </Button>
                     </div>
                   </TableCell>
+                  
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onExcluir(material.id, material.nome)}
-                      className="hover:bg-red-50"
-                    >
+                    <Button variant="ghost" size="icon" onClick={() => onExcluir(material.id, material.nome)} className="hover:bg-red-50">
                       <Trash2 className="size-4 text-red-500" />
                     </Button>
                   </TableCell>

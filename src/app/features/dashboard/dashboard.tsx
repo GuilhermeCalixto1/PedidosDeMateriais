@@ -10,17 +10,34 @@ export function Dashboard() {
   const { materiais } = useMateriais();
   const { emprestimos } = useEmprestimos();
 
-  // Estado para o filtro do novo gráfico
   const [periodoStatus, setPeriodoStatus] = useState('total');
 
-  // 1. Cálculos para os Cards de Resumo
+  // 1. Cálculos de Estoque Corrigidos
   const stats = useMemo(() => {
-    const totalFerramentas = materiais.reduce((acc, curr) => acc + curr.quantidade, 0);
+    // 1.1. Estoque Disponível: A soma do que está fisicamente nas prateleiras
+    const estoqueDisponivel = materiais.reduce((acc, curr) => acc + curr.quantidade, 0);
+
+    // 1.2. Unidades Emprestadas: A soma das quantidades que estão em posse dos funcionários
+    const unidadesEmprestadas = emprestimos
+      .filter(e => e.status === 'Pendente')
+      .reduce((acc, curr) => acc + (Number(curr.quantidade) || 0), 0);
+
+    // 1.3. Patrimônio Total: O que a empresa possui no total (Prateleira + Fora)
+    const estoqueTotal = estoqueDisponivel + unidadesEmprestadas;
+
+    // Outros dados mantidos
     const emprestimosAtivos = emprestimos.filter(e => e.status === 'Pendente').length;
     const ferramentasEletricas = materiais.filter(m => m.categoria === 'eletrico').length;
     const ferramentasMecanicas = materiais.filter(m => m.categoria === 'mecanico').length;
 
-    return { totalFerramentas, emprestimosAtivos, ferramentasEletricas, ferramentasMecanicas };
+    return { 
+      estoqueDisponivel, 
+      unidadesEmprestadas, 
+      estoqueTotal, 
+      emprestimosAtivos, 
+      ferramentasEletricas, 
+      ferramentasMecanicas 
+    };
   }, [materiais, emprestimos]);
 
   // 2. Dados: Materiais em Posse por Gerência (Ativos)
@@ -39,7 +56,7 @@ export function Dashboard() {
       .sort((a, b) => b.unidades - a.unidades);
   }, [emprestimos]);
 
-  // 3. NOVO DADO COM FILTRO: Pendentes vs Devolvidos (Unidades)
+  // 3. DADOS COM FILTRO: Pendentes vs Devolvidos (Unidades)
   const dadosStatus = useMemo(() => {
     let filtrados = emprestimos;
     
@@ -54,7 +71,6 @@ export function Dashboard() {
 
       filtrados = emprestimos.filter(e => {
         if (!e.data_saida) return false;
-        // Divide 'YYYY-MM-DD' de forma segura
         const partes = e.data_saida.split('-');
         if (partes.length !== 3) return false;
         
@@ -78,7 +94,7 @@ export function Dashboard() {
     ];
   }, [emprestimos, periodoStatus]);
   
-  const CORES_STATUS = ['#eab308', '#22c55e']; // Amarelo (Pendente) e Verde (Devolvido)
+  const CORES_STATUS = ['#eab308', '#22c55e'];
 
   // 4. Dados: Top 5 Itens Mais Retirados (Soma de unidades históricas)
   const dadosTopEmprestimos = useMemo(() => {
@@ -108,30 +124,46 @@ export function Dashboard() {
         <p className="text-gray-600 mt-1">Indicadores de desempenho e controle de estoque</p>
       </div>
 
-      {/* CARDS DE RESUMO */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-white shadow-sm">
+      {/* CARDS DE RESUMO - Agora com 5 colunas para separar os dados */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        
+        {/* NOVO: PATRIMÔNIO TOTAL */}
+        <Card className="bg-white shadow-sm border-t-4 border-t-blue-600">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total em Estoque</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Patrimônio Total</CardTitle>
             <Package className="size-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{stats.totalFerramentas}</div>
-            <p className="text-xs text-gray-500">unidades disponíveis</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-white shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Empréstimos Ativos</CardTitle>
-            <Clock className="size-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{stats.emprestimosAtivos}</div>
-            <p className="text-xs text-gray-500">registros pendentes</p>
+            <div className="text-2xl font-bold text-gray-900">{stats.estoqueTotal}</div>
+            <p className="text-[10px] text-gray-500 mt-1 uppercase">Na empresa</p>
           </CardContent>
         </Card>
 
+        {/* CORRIGIDO: ESTOQUE DISPONÍVEL */}
+        <Card className="bg-white shadow-sm border-t-4 border-t-green-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Estoque Disponível</CardTitle>
+            <Package className="size-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-700">{stats.estoqueDisponivel}</div>
+            <p className="text-[10px] text-gray-500 mt-1 uppercase">Pronto a usar</p>
+          </CardContent>
+        </Card>
+        
+        {/* NOVO: EM USO (FORA) */}
+        <Card className="bg-white shadow-sm border-t-4 border-t-yellow-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Em Uso (Fora)</CardTitle>
+            <Clock className="size-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-700">{stats.unidadesEmprestadas}</div>
+            <p className="text-[10px] text-gray-500 mt-1 uppercase">Unidades emprestadas</p>
+          </CardContent>
+        </Card>
+
+        {/* MODELOS CADASTRADOS */}
         <Card className="bg-white shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Modelos de Itens</CardTitle>
@@ -139,20 +171,21 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-900">{materiais.length}</div>
-            <p className="text-xs text-gray-500">itens cadastrados</p>
+            <p className="text-[10px] text-gray-500 mt-1 uppercase">Cadastrados</p>
           </CardContent>
         </Card>
 
+        {/* STATUS OPERACIONAL */}
         <Card className={`shadow-sm ${stats.emprestimosAtivos > 15 ? 'bg-red-50' : 'bg-white'}`}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Status Operacional</CardTitle>
-            <AlertCircle className="size-4" />
+            <CardTitle className="text-sm font-medium">Fluxo de Pedidos</CardTitle>
+            <AlertCircle className={`size-4 ${stats.emprestimosAtivos > 15 ? 'text-red-500' : 'text-gray-400'}`} />
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${stats.emprestimosAtivos > 15 ? 'text-red-700' : 'text-green-600'}`}>
               {stats.emprestimosAtivos > 15 ? 'Carga Alta' : 'Estável'}
             </div>
-            <p className="text-xs text-gray-500">fluxo de ferramentas</p>
+            <p className="text-[10px] text-gray-500 mt-1 uppercase">{stats.emprestimosAtivos} cartões abertos</p>
           </CardContent>
         </Card>
       </div>
@@ -183,7 +216,7 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* 2. NOVO GRÁFICO: STATUS DE DEVOLUÇÕES COM FILTRO */}
+        {/* 2. GRÁFICO: STATUS DE DEVOLUÇÕES COM FILTRO */}
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-start sm:items-center justify-between gap-2 pb-2">
             <CardTitle className="text-lg">Taxa de Devolução (Unidades)</CardTitle>

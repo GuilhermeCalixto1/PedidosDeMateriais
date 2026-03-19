@@ -25,8 +25,8 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header com Navegação Responsiva */}
-      <div className="bg-white border-b shadow-sm sticky top-0 z-40">
+      {/* Header com Navegação Responsiva - ADICIONADO 'print:hidden' AQUI PARA SUMIR NA IMPRESSÃO */}
+      <div className="bg-white border-b shadow-sm sticky top-0 z-40 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 gap-4 sm:gap-0">
             
