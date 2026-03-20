@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { emprestimosService } from '../services/emprestimosService';
 import { Emprestimo, NovaSaidaDTO } from '../types';
+import { useAuditoria } from './AuditoriaContext'; // <-- IMPORT DO ESPIÃO
 
 interface EmprestimosContextType {
   emprestimos: Emprestimo[];
@@ -17,6 +18,9 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
   const [carregando, setCarregando] = useState(true);
 
+  // Ligamos a Auditoria
+  const { registrarLog } = useAuditoria();
+
   const carregarEmprestimos = useCallback(async () => {
     setCarregando(true);
     try {
@@ -32,6 +36,10 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
   const adicionarEmprestimo = async (novaSaida: NovaSaidaDTO, materialId?: string) => {
     try {
       await emprestimosService.registrarSaida(novaSaida, materialId);
+      
+      // REGISTO DE AUDITORIA
+      registrarLog('Empréstimos', 'Nova Saída', `Entregou ${novaSaida.quantidade}x "${novaSaida.materialSolicitado}" para o funcionário ${novaSaida.usuario}`);
+
       await carregarEmprestimos();
     } catch (error) {
       console.error(error);
@@ -42,6 +50,10 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
   const marcarComoDevolvido = async (emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string }) => {
     try {
       await emprestimosService.registrarDevolucao(emprestimo, dadosDevolucao);
+      
+      // REGISTO DE AUDITORIA
+      registrarLog('Empréstimos', 'Devolução', `Recebeu ${emprestimo.quantidade}x "${emprestimo.materialSolicitado}" de volta do funcionário ${emprestimo.usuario}`);
+
       await carregarEmprestimos();
     } catch (error) {
       console.error(error);
@@ -51,6 +63,10 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
   const excluirEmprestimoPendente = async (emprestimo: Emprestimo) => {
     try {
       await emprestimosService.excluirPendente(emprestimo);
+      
+      // REGISTO DE AUDITORIA
+      registrarLog('Empréstimos', 'Excluir Saída', `Cancelou o registo de saída pendente de ${emprestimo.quantidade}x "${emprestimo.materialSolicitado}" para ${emprestimo.usuario}`);
+
       await carregarEmprestimos();
     } catch (error) {
       console.error(error);

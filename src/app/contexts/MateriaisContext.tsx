@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { materiaisService } from '../services/materiaisService';
 import { Material, MaterialDTO } from '../types';
+import { useAuditoria } from './AuditoriaContext'; // <-- IMPORT DO ESPIÃO
 
 interface MateriaisContextType {
   materiais: Material[];
@@ -16,6 +17,9 @@ const MateriaisContext = createContext<MateriaisContextType | undefined>(undefin
 export function MateriaisProvider({ children }: { children: React.ReactNode }) {
   const [materiais, setMateriais] = useState<Material[]>([]);
   const [carregando, setCarregando] = useState(true);
+  
+  // Ligamos a Auditoria
+  const { registrarLog } = useAuditoria();
 
   const carregarMateriais = useCallback(async () => {
     setCarregando(true);
@@ -32,6 +36,10 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
   const adicionarMaterial = async (novoMaterial: MaterialDTO) => {
     try {
       await materiaisService.criar(novoMaterial);
+      
+      // REGISTO DE AUDITORIA
+      registrarLog('Inventário', 'Adicionar Material', `Cadastrou ${novoMaterial.quantidade}x ${novoMaterial.nome} (${novoMaterial.categoria})`);
+      
       await carregarMateriais(); 
     } catch (error) {
       console.error(error);
@@ -40,10 +48,18 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
   };
 
   const atualizarQuantidade = async (id: string, novaQuantidade: number) => {
+    // Guarda o material antigo para saber o que mudou
+    const materialAntigo = materiais.find(m => m.id === id);
+    
     setMateriais(prev => prev.map(m => m.id === id ? { ...m, quantidade: novaQuantidade } : m));
     
     try {
       await materiaisService.atualizarQuantidade(id, novaQuantidade);
+      
+      // REGISTO DE AUDITORIA
+      if (materialAntigo && materialAntigo.quantidade !== novaQuantidade) {
+        registrarLog('Inventário', 'Atualizar Quantidade', `Alterou o stock de "${materialAntigo.nome}" de ${materialAntigo.quantidade} para ${novaQuantidade}`);
+      }
     } catch (error) {
       console.error(error);
       await carregarMateriais();
@@ -51,8 +67,15 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
   };
 
   const excluirMaterial = async (id: string) => {
+    const materialExcluido = materiais.find(m => m.id === id);
     try {
       await materiaisService.excluir(id);
+      
+      // REGISTO DE AUDITORIA
+      if (materialExcluido) {
+        registrarLog('Inventário', 'Excluir Material', `Removeu a ferramenta "${materialExcluido.nome}" do sistema`);
+      }
+      
       setMateriais(prev => prev.filter(m => m.id !== id)); 
     } catch (error) {
       console.error(error);

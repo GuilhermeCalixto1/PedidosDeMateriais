@@ -11,6 +11,7 @@ import { ControleFerramentaria } from './features/emprestimos/ControleFerramenta
 import { GerenciamentoMateriais } from './features/estoque/GerenciamentoMateriais';
 import { ConfiguracoesSistema } from './features/configuracoes/configuracoes';
 import { Notificacoes } from './components/Notificacoes';
+import { HistoricoAuditoria } from './features/auditoria/HistoricoAuditoria';
 
 // UI e Ícones
 import { Button } from './components/ui/button';
