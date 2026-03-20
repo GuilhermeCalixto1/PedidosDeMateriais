@@ -1,37 +1,27 @@
 import React, { useMemo } from 'react';
 import { useMateriais } from '../../../contexts/MateriaisContext';
+import { useConfiguracoes } from '../../../contexts/ConfiguracoesContext'; // <-- NOVO IMPORT
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { AlertTriangle, AlertOctagon } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
-import { AcoesGrafico } from './AcoesGrafico';
 
 export function PainelEstoqueCritico() {
   const { materiais } = useMateriais();
+  const { configuracoes } = useConfiguracoes(); // <-- PUXANDO OS LIMITES
 
   const itensCriticos = useMemo(() => {
     return materiais
-      // O ALERTA DISPARA PARA FERRAMENTAS COM 2 OU MENOS UNIDADES NA PRATELEIRA
-      .filter(m => m.quantidade <= 5) 
+      // AGORA A RUPTURA DEPENDE DO QUE ESTIVER CONFIGURADO
+      .filter(m => m.quantidade <= configuracoes.estoqueMinimoRuptura) 
       .sort((a, b) => a.quantidade - b.quantidade)
-      .slice(0, 5); // Mostra no máximo o Top 5 mais urgente para não quebrar o layout
-  }, [materiais]);
+      .slice(0, 5);
+  }, [materiais, configuracoes.estoqueMinimoRuptura]);
 
   return (
-    <Card id="painel-estoque-critico" className="shadow-sm border-t-4 border-t-red-500">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="size-5 text-red-600" />
-          <CardTitle className="text-lg">Alerta de Ruptura (Estoque Crítico)</CardTitle>
-        </div>
-        <AcoesGrafico
-          elementId="painel-estoque-critico"
-          titulo="Alerta de Ruptura (Estoque Critico)"
-          dados={itensCriticos.map((item) => ({
-            material: item.nome,
-            categoria: item.categoria,
-            disponivel: item.quantidade
-          }))}
-        />
+    <Card className="shadow-sm border-t-4 border-t-red-500">
+      <CardHeader className="flex flex-row items-center gap-2 pb-2">
+        <AlertTriangle className="size-5 text-red-600" />
+        <CardTitle className="text-lg">Alerta de Ruptura (≤ {configuracoes.estoqueMinimoRuptura})</CardTitle>
       </CardHeader>
       <CardContent className="h-80 overflow-y-auto pt-4">
         {itensCriticos.length === 0 ? (
@@ -40,7 +30,7 @@ export function PainelEstoqueCritico() {
               <AlertTriangle className="size-6 text-green-500 opacity-50" />
             </div>
             <p className="text-gray-500 text-sm font-medium">Estoque Saudável!</p>
-            <p className="text-gray-400 text-xs">Nenhuma ferramenta em falta no momento.</p>
+            <p className="text-gray-400 text-xs">Nenhuma ferramenta em nível crítico.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -68,8 +58,8 @@ export function PainelEstoqueCritico() {
                 <Badge 
                   className={`font-bold px-3 py-1 ${
                     item.quantidade === 0 
-                      ? 'bg-red-100 text-red-700 hover:bg-red-100 border-red-200' 
-                      : 'bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200'
+                      ? 'bg-red-100 text-red-700 border-red-200' 
+                      : 'bg-orange-100 text-orange-700 border-orange-200'
                   }`}
                 >
                   {item.quantidade} disp.

@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react';
 import { useMateriais } from '../../../contexts/MateriaisContext';
 import { useEmprestimos } from '../../../contexts/EmprestimosContext';
+import { useConfiguracoes } from '../../../contexts/ConfiguracoesContext'; // <-- NOVO IMPORT
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Package, Wrench, AlertCircle, Clock } from 'lucide-react';
 
 export function CardsResumo() {
   const { materiais } = useMateriais();
   const { emprestimos } = useEmprestimos();
+  const { configuracoes } = useConfiguracoes(); // <-- PUXANDO OS LIMITES DAQUI
 
   const stats = useMemo(() => {
     const estoqueDisponivel = materiais.reduce((acc, curr) => acc + curr.quantidade, 0);
@@ -19,6 +21,9 @@ export function CardsResumo() {
 
     return { estoqueDisponivel, unidadesEmprestadas, estoqueTotal, emprestimosAtivos };
   }, [materiais, emprestimos]);
+
+  // Usamos a variável dinâmica em vez do número 15 fixo
+  const emCargaAlta = stats.emprestimosAtivos >= configuracoes.limiteCargaAlta;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -66,16 +71,19 @@ export function CardsResumo() {
         </CardContent>
       </Card>
 
-      <Card className={`shadow-sm ${stats.emprestimosAtivos > 15 ? 'bg-red-50' : 'bg-white'}`}>
+      {/* CARTÃO DINÂMICO DE FLUXO DE PEDIDOS */}
+      <Card className={`shadow-sm ${emCargaAlta ? 'bg-red-50' : 'bg-white'}`}>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium">Fluxo de Pedidos</CardTitle>
-          <AlertCircle className={`size-4 ${stats.emprestimosAtivos > 15 ? 'text-red-500' : 'text-gray-400'}`} />
+          <AlertCircle className={`size-4 ${emCargaAlta ? 'text-red-500' : 'text-gray-400'}`} />
         </CardHeader>
         <CardContent>
-          <div className={`text-2xl font-bold ${stats.emprestimosAtivos > 15 ? 'text-red-700' : 'text-green-600'}`}>
-            {stats.emprestimosAtivos > 15 ? 'Carga Alta' : 'Estável'}
+          <div className={`text-2xl font-bold ${emCargaAlta ? 'text-red-700' : 'text-green-600'}`}>
+            {emCargaAlta ? 'Carga Alta' : 'Estável'}
           </div>
-          <p className="text-[10px] text-gray-500 mt-1 uppercase">{stats.emprestimosAtivos} cartões abertos</p>
+          <p className="text-[10px] text-gray-500 mt-1 uppercase">
+            {stats.emprestimosAtivos} / {configuracoes.limiteCargaAlta} cartões
+          </p>
         </CardContent>
       </Card>
     </div>
