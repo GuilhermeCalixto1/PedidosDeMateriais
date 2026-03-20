@@ -3,6 +3,7 @@ import { useEmprestimos } from '../../../contexts/EmprestimosContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AcoesGrafico } from './AcoesGrafico';
 
 // COMPONENTE DO BALÃO PERSONALIZADO
 const CustomTooltip = ({ active, payload }: any) => {
@@ -62,10 +63,22 @@ export function GraficoRankingFuncionarios() {
   }, [emprestimos]);
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="flex flex-row items-center gap-2 pb-2">
-        <Users className="size-5 text-red-500" />
-        <CardTitle className="text-lg">Ranking de Retenção (Acumuladores)</CardTitle>
+    <Card id="grafico-ranking-funcionarios" className="shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+        <div className="flex items-center gap-2">
+          <Users className="size-5 text-red-500" />
+          <CardTitle className="text-lg">Ranking de Retenção (Acumuladores)</CardTitle>
+        </div>
+        <AcoesGrafico
+          elementId="grafico-ranking-funcionarios"
+          titulo="Ranking de Retencao (Acumuladores)"
+          dados={dadosRanking.map((item) => ({
+            funcionario: item.nomeCurto,
+            matricula: item.matricula,
+            gerencia: item.gerencia,
+            quantidade: item.quantidade
+          }))}
+        />
       </CardHeader>
       <CardContent className="h-64">
         {dadosRanking.length === 0 ? (

@@ -6,29 +6,30 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Badge } from '../../components/ui/badge';
-import { Plus, Package, Printer, User, Building2, Calendar, Clock, CheckCircle2, Wrench, Zap, PackageOpen } from 'lucide-react';
+import { Plus, Package, Printer, User, Building2, Calendar, Clock, CheckCircle2, Wrench, Zap, PackageOpen, Download, FileText, Mail, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+
+// Importação do Exportador Excel
+import { exportarParaExcel } from '../../utils/exportador';
 
 // Componentes Importados
 import { FormularioSaida } from './components/FormularioSaida';
 import { TabelaImpressao } from './components/TabelaImpressao'; 
 import { FiltrosEmprestimo } from './components/FiltrosEmprestimo';
 import { ModalDevolucao } from './components/ModalDevolucao';
-import { ReciboImpressao } from './components/ReciboImpressao'; // NOVO IMPORT!
+import { ReciboImpressao } from './components/ReciboImpressao';
 
 export function ControleFerramentaria() {
   const { user } = useAuth();
-  const { emprestimos, marcarComoDevolvido, carregando } = useEmprestimos();
+  const { emprestimos, marcarComoDevolvido, excluirEmprestimoPendente, carregando } = useEmprestimos();
   const { recarregarMateriais } = useMateriais();
   
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState<'todos' | 'Pendente' | 'Devolvido'>('Pendente');
   const [processando, setProcessando] = useState(false);
   
-  // Estado para controlar se vamos imprimir um recibo individual
   const [grupoParaImprimir, setGrupoParaImprimir] = useState<any>(null);
 
-  // Limpa o estado de impressão individual depois da janela de impressão fechar
   useEffect(() => {
     const handleAfterPrint = () => setGrupoParaImprimir(null);
     window.addEventListener('afterprint', handleAfterPrint);
@@ -145,15 +146,74 @@ export function ControleFerramentaria() {
     }
   };
 
-  // Funções de Impressão
+  const apagarCartaoPendente = async (grupo: any) => {
+    if (grupo.status !== 'Pendente') return;
+
+    const totalItens = grupo.itens.length;
+    const confirmado = window.confirm(`Deseja apagar este cartão pendente com ${totalItens} item(ns)? Esta ação corrige lançamento incorreto e devolve as quantidades ao estoque.`);
+    if (!confirmado) return;
+
+    setProcessando(true);
+    try {
+      for (const item of grupo.itens) {
+        await excluirEmprestimoPendente(item);
+      }
+      if (recarregarMateriais) await recarregarMateriais();
+      toast.success('Cartão pendente apagado com sucesso.');
+    } catch (error) {
+      toast.error('Erro ao apagar cartão pendente.');
+    } finally {
+      setProcessando(false);
+    }
+  };
+
+  // Funções de Impressão e Exportação
   const handleImprimirListaGeral = () => {
-    setGrupoParaImprimir(null); // Garante que a Lista Geral seja impressa
+    setGrupoParaImprimir(null);
     setTimeout(() => window.print(), 100);
   };
 
   const handleImprimirReciboIndividual = (grupo: any) => {
-    setGrupoParaImprimir(grupo); // Configura o recibo específico
+    setGrupoParaImprimir(grupo);
     setTimeout(() => window.print(), 100);
+  };
+
+  const handleExportarExcel = () => {
+    const colunas = {
+      usuario: 'Funcionário / Solicitante',
+      gerencia: 'Gerência / Setor',
+      materialSolicitado: 'Ferramenta Retirada',
+      material_categoria: 'Categoria',
+      quantidade: 'Qtd.',
+      data_saida: 'Data de Saída',
+      status: 'Status Atual',
+      data_devolucao: 'Data de Devolução',
+      observacao: 'Observações'
+    };
+    exportarParaExcel(emprestimosFiltrados, 'Relatorio_Emprestimos', colunas);
+    toast.success('Ficheiro Excel gerado com sucesso!');
+  };
+
+  const handleEnviarEmail = () => {
+    const preview = emprestimosFiltrados
+      .slice(0, 20)
+      .map((item) => {
+        const gerencia = item.gerencia || 'Não informada';
+        return `${item.usuario} | Gerência: ${gerencia} | ${item.materialSolicitado} | Qtd: ${item.quantidade} | ${item.status}`;
+      })
+      .join('\n');
+
+    const corpo = [
+      'Segue o resumo de emprestimos (com os filtros atuais):',
+      '',
+      preview || 'Sem dados para o filtro atual.',
+      '',
+      'Obs: para anexar arquivo, exporte em Excel e anexe manualmente no e-mail.'
+    ].join('\n');
+
+    const mailto = `mailto:?subject=${encodeURIComponent('Relatorio de Emprestimos')}&body=${encodeURIComponent(corpo)}`;
+    window.location.href = mailto;
+    toast.info('Cliente de e-mail aberto com o resumo.');
   };
 
   if (carregando) return <div className="p-8 text-center text-gray-500">A carregar dados do sistema...</div>;
@@ -168,11 +228,23 @@ export function ControleFerramentaria() {
             <h2 className="text-2xl font-semibold">Empréstimos de Ferramentas</h2>
             <p className="text-gray-600 mt-1">Gerencie saídas e devoluções de materiais</p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <Button onClick={handleImprimirListaGeral} variant="outline" className="w-full sm:w-auto bg-white">
-              <Printer className="size-4 mr-2" /> Imprimir Pendentes Filtrados
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <Button onClick={handleImprimirListaGeral} variant="outline" className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50">
+              <FileText className="size-4 mr-2 text-red-600" /> 
+              PDF / Imprimir
             </Button>
-            <Button onClick={() => setMostrarFormulario(true)} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700">
+            
+            <Button onClick={handleExportarExcel} variant="outline" className="bg-white border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300">
+              <Download className="size-4 mr-2 text-green-600" /> 
+              Excel
+            </Button>
+
+            <Button onClick={handleEnviarEmail} variant="outline" className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300">
+              <Mail className="size-4 mr-2 text-blue-600" />
+              E-mail
+            </Button>
+
+            <Button onClick={() => setMostrarFormulario(true)} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="size-5 mr-2" /> Nova Saída
             </Button>
           </div>
@@ -210,7 +282,6 @@ export function ControleFerramentaria() {
                 {gruposDeEmprestimo.map((grupo) => (
                   <div key={grupo.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all hover:shadow-md">
                     
-                    {/* Cabeçalho do Cartão Agrupado */}
                     <div className="bg-gray-50/80 px-5 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -224,7 +295,6 @@ export function ControleFerramentaria() {
                         </div>
                       </div>
                       
-                      {/* Badge e Botão de Imprimir Recibo Individual */}
                       <div className="flex items-center gap-3">
                         <Badge className={`px-3 py-1 text-xs uppercase tracking-wider font-semibold ${
                           grupo.status === 'Pendente' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-green-100 text-green-800 border-green-200'
@@ -233,18 +303,27 @@ export function ControleFerramentaria() {
                           {grupo.status}
                         </Badge>
                         <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          title="Imprimir Recibo Assinado"
+                          variant="ghost" size="icon" title="Imprimir Recibo Assinado"
                           onClick={() => handleImprimirReciboIndividual(grupo)}
                           className="h-8 w-8 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
                         >
                           <Printer className="size-4" />
                         </Button>
+                        {grupo.status === 'Pendente' && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Apagar cartão pendente"
+                            onClick={() => apagarCartaoPendente(grupo)}
+                            className="h-8 w-8 text-gray-500 hover:text-red-600 hover:bg-red-50"
+                            disabled={processando}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
 
-                    {/* Lista de Ferramentas dentro do Cartão */}
                     <div className="divide-y divide-gray-100">
                       {grupo.itens.map((item: any) => (
                         <div key={item.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-blue-50/20 transition-colors">
@@ -262,6 +341,11 @@ export function ControleFerramentaria() {
                                 {item.status === 'Devolvido' && item.data_devolucao && (
                                   <span className="text-xs text-green-600 font-medium border-l pl-3 flex items-center gap-1">
                                     <CheckCircle2 className="size-3" /> Devolvido em {formatarData(item.data_devolucao)}
+                                  </span>
+                                )}
+                                {item.status === 'Devolvido' && item.responsavel_recebimento && (
+                                  <span className="text-xs text-blue-700 font-medium border-l pl-3">
+                                    Recebido por: {item.responsavel_recebimento}
                                   </span>
                                 )}
                               </div>
@@ -303,10 +387,6 @@ export function ControleFerramentaria() {
         processando={processando} onConfirmar={confirmarDevolucao} onCancelar={() => setEmprestimoParaDevolver(null)}
       />
 
-      {/* LÓGICA DE IMPRESSÃO INTELIGENTE:
-          Se houver um grupoSelecionado, imprime apenas o Recibo com as Assinaturas.
-          Se NÃO houver (ou seja, o utilizador clicou no botão Imprimir Geral lá em cima), imprime a TabelaClássica.
-      */}
       {grupoParaImprimir ? (
         <ReciboImpressao grupo={grupoParaImprimir} />
       ) : (

@@ -45,8 +45,8 @@ export function TabelaEstoque({ materiais, carregando, onAtualizarQuantidade, on
                 <TableHead className="text-center bg-yellow-50/50">Em Uso (Fora)</TableHead>
                 <TableHead className="text-center bg-green-50/50">Disponível (Prateleira)</TableHead>
                 
-                <TableHead className="text-center w-[180px]">Ajuste Disponível</TableHead>
-                <TableHead className="text-right">Ação</TableHead>
+                <TableHead className="text-center w-[180px] print:hidden">Ajuste Disponível</TableHead>
+                <TableHead className="text-right print:hidden">Ação</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -73,7 +73,7 @@ export function TabelaEstoque({ materiais, carregando, onAtualizarQuantidade, on
                   </TableCell>
 
                   {/* AJUSTE MANUAL (Apenas do Disponível) */}
-                  <TableCell>
+                  <TableCell className="print:hidden">
                     <div className="flex items-center justify-center gap-2">
                       <Button 
                         variant="outline" size="icon" className="h-7 w-7 rounded-full text-red-600 hover:bg-red-50"
@@ -92,7 +92,7 @@ export function TabelaEstoque({ materiais, carregando, onAtualizarQuantidade, on
                     </div>
                   </TableCell>
                   
-                  <TableCell className="text-right">
+                  <TableCell className="text-right print:hidden">
                     <Button variant="ghost" size="icon" onClick={() => onExcluir(material.id, material.nome)} className="hover:bg-red-50">
                       <Trash2 className="size-4 text-red-500" />
                     </Button>

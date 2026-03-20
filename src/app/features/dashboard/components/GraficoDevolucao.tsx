@@ -3,6 +3,7 @@ import { useEmprestimos } from '../../../contexts/EmprestimosContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AcoesGrafico } from './AcoesGrafico';
 
 export function GraficoDevolucao() {
   const { emprestimos } = useEmprestimos();
@@ -47,19 +48,26 @@ export function GraficoDevolucao() {
   const CORES_STATUS = ['#eab308', '#22c55e'];
 
   return (
-    <Card className="shadow-sm">
+    <Card id="grafico-devolucao" className="shadow-sm">
       <CardHeader className="flex flex-row items-start sm:items-center justify-between gap-2 pb-2">
         <CardTitle className="text-lg">Taxa de Devolução (%)</CardTitle>
-        <Select value={periodoStatus} onValueChange={setPeriodoStatus}>
-          <SelectTrigger className="w-[140px] h-8 text-xs bg-gray-50">
-            <SelectValue placeholder="Período" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="total">Todo o Período</SelectItem>
-            <SelectItem value="7">Últimos 7 dias</SelectItem>
-            <SelectItem value="30">Últimos 30 dias</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-1">
+          <Select value={periodoStatus} onValueChange={setPeriodoStatus}>
+            <SelectTrigger className="w-[140px] h-8 text-xs bg-gray-50">
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="total">Todo o Período</SelectItem>
+              <SelectItem value="7">Últimos 7 dias</SelectItem>
+              <SelectItem value="30">Últimos 30 dias</SelectItem>
+            </SelectContent>
+          </Select>
+          <AcoesGrafico
+            elementId="grafico-devolucao"
+            titulo="Taxa de Devolucao"
+            dados={dadosStatus.map((item) => ({ status: item.name, total: item.value }))}
+          />
+        </div>
       </CardHeader>
       <CardContent className="h-80">
         {dadosStatus.every(d => d.value === 0) ? (

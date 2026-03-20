@@ -3,6 +3,7 @@ import { useEmprestimos } from '../../../contexts/EmprestimosContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Clock } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AcoesGrafico } from './AcoesGrafico';
 
 export function GraficoEnvelhecimento() {
   const { emprestimos } = useEmprestimos();
@@ -53,10 +54,17 @@ export function GraficoEnvelhecimento() {
   const dadosValidos = dadosEnvelhecimento.filter(d => d.value > 0);
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="flex flex-row items-center gap-2 pb-2">
-        <Clock className="size-5 text-orange-500" />
-        <CardTitle className="text-lg">Envelhecimento (Dias na Rua)</CardTitle>
+    <Card id="grafico-envelhecimento" className="shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+        <div className="flex items-center gap-2">
+          <Clock className="size-5 text-orange-500" />
+          <CardTitle className="text-lg">Envelhecimento (Dias na Rua)</CardTitle>
+        </div>
+        <AcoesGrafico
+          elementId="grafico-envelhecimento"
+          titulo="Envelhecimento (Dias na Rua)"
+          dados={dadosEnvelhecimento.map((item) => ({ faixa: item.name, total: item.value }))}
+        />
       </CardHeader>
       <CardContent className="h-80">
         {dadosValidos.length === 0 ? (

@@ -3,6 +3,7 @@ import { useEmprestimos } from '../../../contexts/EmprestimosContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Building2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AcoesGrafico } from './AcoesGrafico';
 
 export function GraficoGerencia() {
   const { emprestimos } = useEmprestimos();
@@ -23,10 +24,17 @@ export function GraficoGerencia() {
   }, [emprestimos]);
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="flex flex-row items-center gap-2">
-        <Building2 className="size-5 text-emerald-600" />
-        <CardTitle className="text-lg">Materiais em Posse por Gerência (Ativos)</CardTitle>
+    <Card id="grafico-gerencia" className="shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Building2 className="size-5 text-emerald-600" />
+          <CardTitle className="text-lg">Materiais em Posse por Gerência (Ativos)</CardTitle>
+        </div>
+        <AcoesGrafico
+          elementId="grafico-gerencia"
+          titulo="Materiais em Posse por Gerencia (Ativos)"
+          dados={dadosPorGerencia}
+        />
       </CardHeader>
       <CardContent className="h-64">
         {dadosPorGerencia.length === 0 ? (

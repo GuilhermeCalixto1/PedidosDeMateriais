@@ -3,6 +3,7 @@ import { useMateriais } from '../../../contexts/MateriaisContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { AlertTriangle, AlertOctagon } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
+import { AcoesGrafico } from './AcoesGrafico';
 
 export function PainelEstoqueCritico() {
   const { materiais } = useMateriais();
@@ -16,10 +17,21 @@ export function PainelEstoqueCritico() {
   }, [materiais]);
 
   return (
-    <Card className="shadow-sm border-t-4 border-t-red-500">
-      <CardHeader className="flex flex-row items-center gap-2 pb-2">
-        <AlertTriangle className="size-5 text-red-600" />
-        <CardTitle className="text-lg">Alerta de Ruptura (Estoque Crítico)</CardTitle>
+    <Card id="painel-estoque-critico" className="shadow-sm border-t-4 border-t-red-500">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="size-5 text-red-600" />
+          <CardTitle className="text-lg">Alerta de Ruptura (Estoque Crítico)</CardTitle>
+        </div>
+        <AcoesGrafico
+          elementId="painel-estoque-critico"
+          titulo="Alerta de Ruptura (Estoque Critico)"
+          dados={itensCriticos.map((item) => ({
+            material: item.nome,
+            categoria: item.categoria,
+            disponivel: item.quantidade
+          }))}
+        />
       </CardHeader>
       <CardContent className="h-80 overflow-y-auto pt-4">
         {itensCriticos.length === 0 ? (

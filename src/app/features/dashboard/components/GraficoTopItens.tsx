@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useEmprestimos } from '../../../contexts/EmprestimosContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AcoesGrafico } from './AcoesGrafico';
 
 export function GraficoTopItens() {
   const { emprestimos } = useEmprestimos();
@@ -20,9 +21,14 @@ export function GraficoTopItens() {
   }, [emprestimos]);
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader>
+    <Card id="grafico-top-itens" className="shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-lg">Top 5: Mais Emprestados (Geral)</CardTitle>
+        <AcoesGrafico
+          elementId="grafico-top-itens"
+          titulo="Top 5 Mais Emprestados"
+          dados={dadosTopEmprestimos}
+        />
       </CardHeader>
       <CardContent className="h-80">
         {dadosTopEmprestimos.length === 0 ? (

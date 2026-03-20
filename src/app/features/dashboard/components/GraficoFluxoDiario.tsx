@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Activity } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AcoesGrafico } from './AcoesGrafico';
 
 export function GraficoFluxoDiario() {
   const { emprestimos } = useEmprestimos();
@@ -35,22 +36,29 @@ export function GraficoFluxoDiario() {
   }, [emprestimos, periodoFluxo]);
 
   return (
-    <Card className="shadow-sm lg:col-span-2">
+    <Card id="grafico-fluxo-diario" className="shadow-sm lg:col-span-2">
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
         <div className="flex items-center gap-2">
           <Activity className="size-5 text-blue-600" />
           <CardTitle className="text-lg">Fluxo Diário: Saídas vs Devoluções</CardTitle>
         </div>
-        <Select value={periodoFluxo} onValueChange={setPeriodoFluxo}>
-          <SelectTrigger className="w-[140px] h-8 text-xs bg-gray-50">
-            <SelectValue placeholder="Período" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="14">Últimos 14 dias</SelectItem>
-            <SelectItem value="30">Últimos 30 dias</SelectItem>
-            <SelectItem value="60">Últimos 60 dias</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-1">
+          <Select value={periodoFluxo} onValueChange={setPeriodoFluxo}>
+            <SelectTrigger className="w-[140px] h-8 text-xs bg-gray-50">
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="14">Últimos 14 dias</SelectItem>
+              <SelectItem value="30">Últimos 30 dias</SelectItem>
+              <SelectItem value="60">Últimos 60 dias</SelectItem>
+            </SelectContent>
+          </Select>
+          <AcoesGrafico
+            elementId="grafico-fluxo-diario"
+            titulo="Fluxo Diario Saidas x Devolucoes"
+            dados={dadosFluxoDiario}
+          />
+        </div>
       </CardHeader>
       <CardContent className="h-72">
         <ResponsiveContainer width="100%" height="100%">
