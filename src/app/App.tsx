@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { EmprestimosProvider } from './contexts/EmprestimosContext';
 import { MateriaisProvider } from './contexts/MateriaisContext';
 import { ConfiguracoesProvider } from './contexts/ConfiguracoesContext';
+import { AuditoriaProvider } from './contexts/AuditoriaContext';
 
 // Páginas e Funcionalidades
 import { LoginPage } from './components/LoginPage';
@@ -10,17 +11,19 @@ import { Dashboard } from './features/dashboard/dashboard';
 import { ControleFerramentaria } from './features/emprestimos/ControleFerramentaria';
 import { GerenciamentoMateriais } from './features/estoque/GerenciamentoMateriais';
 import { ConfiguracoesSistema } from './features/configuracoes/configuracoes';
-import { Notificacoes } from './components/Notificacoes';
 import { HistoricoAuditoria } from './features/auditoria/HistoricoAuditoria';
+import { Notificacoes } from './components/Notificacoes';
 
 // UI e Ícones
 import { Button } from './components/ui/button';
 import { Toaster } from './components/ui/sonner';
-import { Package, ClipboardList, LogOut, BarChart3, Settings } from 'lucide-react';
+import { Package, ClipboardList, LogOut, BarChart3, Settings, ShieldCheck } from 'lucide-react';
 
 function AppContent() {
   const { isAuthenticated, user, logout } = useAuth();
-  const [paginaAtiva, setPaginaAtiva] = useState<'dashboard' | 'emprestimos' | 'materiais' | 'configuracoes'>('dashboard');
+  
+  // O estado agora inclui a 'auditoria' para a página poder ser mostrada
+  const [paginaAtiva, setPaginaAtiva] = useState<'dashboard' | 'emprestimos' | 'materiais' | 'configuracoes' | 'auditoria'>('dashboard');
 
   if (!isAuthenticated) {
     return <LoginPage />;
@@ -28,10 +31,8 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header com Navegação Responsiva */}
       <div className="bg-white border-b shadow-sm sticky top-0 z-40 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center py-4 gap-4 lg:gap-0">
             
             {/* Logo e Info do Usuário */}
@@ -45,10 +46,8 @@ function AppContent() {
               </div>
             </div>
 
-            {/* O SEGREDO ESTÁ AQUI: Separamos as secções! */}
+            {/* Menus de Navegação */}
             <div className="flex items-center gap-4 w-full lg:w-auto">
-              
-              {/* 1. Zona de Scroll (Apenas para os botões de navegação) */}
               <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 w-full lg:w-auto">
                 <Button variant={paginaAtiva === 'dashboard' ? 'default' : 'outline'} onClick={() => setPaginaAtiva('dashboard')} className="whitespace-nowrap">
                   <BarChart3 className="size-4 mr-2" /> Visão Geral
@@ -62,35 +61,36 @@ function AppContent() {
                   <Package className="size-4 mr-2" /> Inventário
                 </Button>
 
+                {/* Botão da Auditoria */}
+                <Button variant={paginaAtiva === 'auditoria' ? 'default' : 'outline'} onClick={() => setPaginaAtiva('auditoria')} className="whitespace-nowrap">
+                  <ShieldCheck className="size-4 mr-2" /> Auditoria
+                </Button>
+
                 <Button variant={paginaAtiva === 'configuracoes' ? 'default' : 'outline'} onClick={() => setPaginaAtiva('configuracoes')} className="whitespace-nowrap">
                   <Settings className="size-4 mr-2" /> Configurações
                 </Button>
               </div>
 
-              {/* Separador Visual */}
               <div className="h-6 w-px bg-gray-200 hidden sm:block"></div>
 
-              {/* 2. Zona Fixa (Sino e Logout - Livres do corte do CSS!) */}
               <div className="flex items-center gap-2 shrink-0">
                 <Notificacoes />
-                
                 <Button variant="ghost" onClick={logout} className="whitespace-nowrap text-red-600 hover:text-red-700 hover:bg-red-50" title="Sair do sistema">
                   <LogOut className="size-4 sm:mr-2" />
                   <span className="hidden sm:inline">Sair</span>
                 </Button>
               </div>
-
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* Conteúdo Principal */}
+      {/* Conteúdo Principal (Renderiza as Páginas) */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {paginaAtiva === 'dashboard' && <Dashboard />}
         {paginaAtiva === 'emprestimos' && <ControleFerramentaria />}
         {paginaAtiva === 'materiais' && <GerenciamentoMateriais />}
+        {paginaAtiva === 'auditoria' && <HistoricoAuditoria />} 
         {paginaAtiva === 'configuracoes' && <ConfiguracoesSistema />}
       </div>
 
@@ -102,13 +102,15 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <ConfiguracoesProvider>
-        <MateriaisProvider>
-          <EmprestimosProvider>
-            <AppContent />
-          </EmprestimosProvider>
-        </MateriaisProvider>
-      </ConfiguracoesProvider>
+      <AuditoriaProvider>
+        <ConfiguracoesProvider>
+          <MateriaisProvider>
+            <EmprestimosProvider>
+              <AppContent />
+            </EmprestimosProvider>
+          </MateriaisProvider>
+        </ConfiguracoesProvider>
+      </AuditoriaProvider>
     </AuthProvider>
   );
 }
