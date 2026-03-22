@@ -1,34 +1,25 @@
-// ==========================================
-// 1. TIPAGENS DE USUÁRIO E AUTENTICAÇÃO
-// ==========================================
+// src/app/types/index.ts
+
 export interface UsuarioLogado {
   id: string;
   nome: string;
   matricula: string;
-  role: "admin" | "funcionario"; // O cargo unificado e correto
+  role: "admin" | "funcionario";
 }
 
-// ==========================================
-// 2. TIPAGENS DE MATERIAIS / ESTOQUE
-// ==========================================
-// DTO (Data Transfer Object) - Usado para criar um NOVO material (ainda sem ID)
 export interface MaterialDTO {
   nome: string;
   categoria: "mecanico" | "eletrico";
   quantidade: number;
-  valor_unitario?: number; // <-- ADICIONADO: Permite registar o preço
+  valor_unitario?: number;
 }
 
-// O Material completo, conforme vem do Banco de Dados e modificado pelo Contexto
 export interface Material extends MaterialDTO {
   id: string;
-  total?: number; // <-- ADICIONADO: Para a tabela saber que pode receber isto
-  emUso?: number; // <-- ADICIONADO: Para a tabela saber a quantidade na rua
+  total?: number; // <-- ADICIONADO
+  emUso?: number; // <-- ADICIONADO
 }
 
-// ==========================================
-// 3. TIPAGENS DE EMPRÉSTIMOS
-// ==========================================
 export interface Emprestimo {
   id: string;
   usuario: string;
@@ -43,5 +34,4 @@ export interface Emprestimo {
   responsavel_recebimento?: string;
 }
 
-// DTO para registrar uma NOVA saída (não precisa de ID nem Status inicial)
 export type NovaSaidaDTO = Omit<Emprestimo, "id" | "status">;

@@ -1,28 +1,21 @@
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../../utils/supabase/supabaseClient";
 import { UsuarioLogado } from "../types/index";
+import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 
-// O domínio invisível fica agora escondido aqui no serviço
+const supabaseUrl = `https://${projectId}.supabase.co`;
 const DOMINIO_SISTEMA = "@ferramentaria.local";
 
 export const authService = {
-  // 1. Fazer Login
   async login(matricula: string, senha: string) {
     const emailFake = `${matricula}${DOMINIO_SISTEMA}`;
-
     const { error } = await supabase.auth.signInWithPassword({
       email: emailFake,
       password: senha,
     });
-
-    if (error) {
-      if (error.message.includes("Invalid login credentials")) {
-        throw new Error("Matrícula ou senha incorretos.");
-      }
-      throw new Error("Erro ao fazer login: " + error.message);
-    }
+    if (error) throw new Error("Matrícula ou senha incorretos.");
   },
 
-  // 2. Fazer Cadastro (AGORA COM ROLE PADRÃO)
   async cadastrar(
     nome: string,
     matricula: string,
@@ -30,41 +23,37 @@ export const authService = {
     role: string,
   ) {
     const emailFake = `${matricula}${DOMINIO_SISTEMA}`;
-
-    const { error } = await supabase.auth.signUp({
+    // Cliente temporário para não persistir sessão e não deslogar o admin
+    const tempClient = createClient(supabaseUrl, publicAnonKey, {
+      auth: { persistSession: false },
+    });
+    const { error } = await tempClient.auth.signUp({
       email: emailFake,
       password: senha,
-      options: {
-        data: { nome, matricula, role },
-      },
+      options: { data: { nome, matricula, role } },
     });
-
-    if (error) {
-      if (error.message.includes("User already registered"))
-        throw new Error("Esta matrícula já está registada.");
-      throw new Error("Erro ao cadastrar: " + error.message);
-    }
+    if (error) throw new Error(error.message);
   },
 
-  // 3. Fazer Logout
+  async mudarSenha(novaSenha: string) {
+    const { error } = await supabase.auth.updateUser({ password: novaSenha });
+    if (error) throw new Error(error.message);
+  },
+
   async logout() {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw new Error("Erro ao fazer logout.");
+    await supabase.auth.signOut();
   },
 
-  // 4. Helper formatado (AGORA PUXA A ROLE DO BANCO)
   formatarUsuario(user: any): UsuarioLogado | null {
     if (!user) return null;
     return {
       id: user.id,
       nome: user.user_metadata?.nome || "Usuário",
       matricula: user.user_metadata?.matricula || "",
-      // Puxa a role. Se não existir (contas antigas), assume 'funcionario'
       role: user.user_metadata?.role || "funcionario",
     };
   },
 
-  // 5. Obter a sessão ao carregar a página
   async obterSessaoAtual() {
     const {
       data: { session },
@@ -72,7 +61,6 @@ export const authService = {
     return this.formatarUsuario(session?.user);
   },
 
-  // 6. Escutar mudanças de Login/Logout
   observarEstadoAuth(callback: (usuario: UsuarioLogado | null) => void) {
     const {
       data: { subscription },

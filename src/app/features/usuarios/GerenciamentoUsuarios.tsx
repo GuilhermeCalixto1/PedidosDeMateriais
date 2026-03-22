@@ -26,7 +26,6 @@ export function GerenciamentoUsuarios() {
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  // Estados do Formulário
   const [nome, setNome] = useState("");
   const [matricula, setMatricula] = useState("");
   const [senha, setSenha] = useState("");
@@ -96,7 +95,6 @@ export function GerenciamentoUsuarios() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Formulário de Cadastro */}
         <Card className="lg:col-span-1 shadow-sm border-t-4 border-t-blue-600 h-fit">
           <CardHeader className="bg-gray-50/50 border-b border-gray-100">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -159,7 +157,6 @@ export function GerenciamentoUsuarios() {
           </CardContent>
         </Card>
 
-        {/* Tabela de Usuários */}
         <Card className="lg:col-span-2 shadow-sm">
           <CardHeader className="bg-gray-50/50 border-b border-gray-100">
             <CardTitle className="text-lg flex items-center gap-2">
