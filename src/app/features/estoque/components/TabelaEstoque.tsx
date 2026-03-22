@@ -1,108 +1,191 @@
-import React from 'react';
-import { Card, CardContent } from '../../../components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Badge } from '../../../components/ui/badge';
-import { Button } from '../../../components/ui/button';
-import { Loader2, Package, Trash2, Plus, Minus, Wrench, Zap } from 'lucide-react';
+import React, { useState } from "react";
+import { Material } from "../../../types";
+import { useAuth } from "../../../contexts/AuthContext";
+import { Button } from "../../../components/ui/button";
+import { Badge } from "../../../components/ui/badge";
+import {
+  Package,
+  Wrench,
+  Zap,
+  Trash2,
+  Edit,
+  AlertTriangle,
+  Search,
+} from "lucide-react";
+import { ModalEditarMaterial } from "./ModalEditarMaterial";
+import { formatarMoeda } from "../../../utils/formatters";
 
 interface TabelaEstoqueProps {
-  materiais: any[];
+  materiais: Material[];
   carregando: boolean;
-  onAtualizarQuantidade: (id: string, novaQuantidade: number) => void;
-  onExcluir: (id: string, nome: string) => void;
+  onAtualizarQuantidade: (id: string, novaQuantidade: number) => Promise<void>;
+  onExcluir: (id: string, nome: string) => Promise<void>;
 }
 
-export function TabelaEstoque({ materiais, carregando, onAtualizarQuantidade, onExcluir }: TabelaEstoqueProps) {
-  
-  const getCategoriaBadge = (categoria: 'mecanico' | 'eletrico') => {
-    if (categoria === 'eletrico') {
-      return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200"><Zap className="size-3 mr-1" /> Elétrico</Badge>;
-    }
-    return <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200"><Wrench className="size-3 mr-1" /> Mecânico</Badge>;
-  };
+export function TabelaEstoque({
+  materiais,
+  carregando,
+  onAtualizarQuantidade,
+  onExcluir,
+}: TabelaEstoqueProps) {
+  const { user } = useAuth(); // Puxa o utilizador logado para validar permissões
+  const [materialParaEditar, setMaterialParaEditar] = useState<Material | null>(
+    null,
+  );
+
+  if (carregando) {
+    return (
+      <div className="p-8 text-center text-gray-500">
+        A carregar inventário...
+      </div>
+    );
+  }
+
+  if (materiais.length === 0) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+        <Search className="size-12 mx-auto text-gray-300 mb-4" />
+        <h3 className="text-lg font-semibold text-gray-700 mb-2">
+          Nenhuma ferramenta encontrada
+        </h3>
+        <p className="text-gray-500">
+          Tente ajustar os filtros de busca ou adicione um novo material.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <Card>
-      <CardContent className="p-0 overflow-hidden">
-        {carregando ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="size-8 animate-spin text-blue-600" />
-            <span className="ml-3 text-gray-600">Sincronizando com banco de dados...</span>
-          </div>
-        ) : materiais.length === 0 ? (
-          <div className="py-12 text-center text-gray-500">
-            <Package className="size-12 mx-auto mb-4 opacity-20" />
-            <p>Nenhum material encontrado.</p>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader className="bg-gray-50">
-              <TableRow>
-                <TableHead>Nome da Ferramenta</TableHead>
-                <TableHead>Categoria</TableHead>
-                {/* 3 NOVAS COLUNAS CLARAS */}
-                <TableHead className="text-center bg-gray-100/50">Patrimônio Total</TableHead>
-                <TableHead className="text-center bg-yellow-50/50">Em Uso (Fora)</TableHead>
-                <TableHead className="text-center bg-green-50/50">Disponível (Prateleira)</TableHead>
-                
-                <TableHead className="text-center w-[180px] print:hidden">Ajuste Disponível</TableHead>
-                <TableHead className="text-right print:hidden">Ação</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+    <>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-4">Ferramenta</th>
+                <th className="px-6 py-4">Categoria</th>
+                <th className="px-6 py-4 text-center">Património Total</th>
+                <th className="px-6 py-4 text-center">Em Uso (Rua)</th>
+                <th className="px-6 py-4 text-center">
+                  Disponível (Prateleira)
+                </th>
+                <th className="px-6 py-4 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
               {materiais.map((material) => (
-                <TableRow key={material.id}>
-                  <TableCell className="font-medium">{material.nome}</TableCell>
-                  <TableCell>{getCategoriaBadge(material.categoria)}</TableCell>
-                  
-                  {/* COLUNA: TOTAL */}
-                  <TableCell className="text-center font-bold text-gray-700 bg-gray-50/30">
-                    {material.total}
-                  </TableCell>
-                  
-                  {/* COLUNA: EM USO */}
-                  <TableCell className="text-center font-bold text-yellow-600 bg-yellow-50/30">
-                    {material.emUso > 0 ? material.emUso : '-'}
-                  </TableCell>
-
-                  {/* COLUNA: DISPONIVEL (Prateleira) */}
-                  <TableCell className="text-center">
-                    <Badge variant="outline" className={`text-sm px-3 py-1 ${material.quantidade === 0 ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
-                      {material.quantidade}
-                    </Badge>
-                  </TableCell>
-
-                  {/* AJUSTE MANUAL (Apenas do Disponível) */}
-                  <TableCell className="print:hidden">
-                    <div className="flex items-center justify-center gap-2">
-                      <Button 
-                        variant="outline" size="icon" className="h-7 w-7 rounded-full text-red-600 hover:bg-red-50"
-                        onClick={() => onAtualizarQuantidade(material.id, material.quantidade - 1)}
-                        disabled={material.quantidade <= 0}
-                      >
-                        <Minus className="size-3" />
-                      </Button>
-                      
-                      <Button 
-                        variant="outline" size="icon" className="h-7 w-7 rounded-full text-blue-600 hover:bg-blue-50"
-                        onClick={() => onAtualizarQuantidade(material.id, material.quantidade + 1)}
-                      >
-                        <Plus className="size-3" />
-                      </Button>
+                <tr
+                  key={material.id}
+                  className="hover:bg-blue-50/30 transition-colors"
+                >
+                  <td className="px-6 py-4">
+                    <div className="font-semibold text-gray-900">
+                      {material.nome}
                     </div>
-                  </TableCell>
-                  
-                  <TableCell className="text-right print:hidden">
-                    <Button variant="ghost" size="icon" onClick={() => onExcluir(material.id, material.nome)} className="hover:bg-red-50">
-                      <Trash2 className="size-4 text-red-500" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                    <div className="text-xs text-gray-500 mt-0.5 font-mono">
+                      ID: {material.id.substring(0, 8)}
+                    </div>
+
+                    {/* Renderiza o valor monetário formatado apenas se a ferramenta tiver um valor registado */}
+                    {material.valor_unitario !== undefined &&
+                      material.valor_unitario !== null && (
+                        <div className="text-xs text-emerald-600 font-medium mt-1">
+                          {formatarMoeda(material.valor_unitario)}
+                        </div>
+                      )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <Badge
+                      variant="outline"
+                      className={`capitalize ${
+                        material.categoria === "mecanico"
+                          ? "bg-orange-50 text-orange-700 border-orange-200"
+                          : "bg-purple-50 text-purple-700 border-purple-200"
+                      }`}
+                    >
+                      {material.categoria === "mecanico" ? (
+                        <Wrench className="size-3 mr-1" />
+                      ) : (
+                        <Zap className="size-3 mr-1" />
+                      )}
+                      {material.categoria}
+                    </Badge>
+                  </td>
+
+                  {/* Património Total */}
+                  <td className="px-6 py-4 text-center">
+                    <span className="font-bold text-gray-700 bg-gray-100 px-3 py-1 rounded-full">
+                      {material.total || material.quantidade}
+                    </span>
+                  </td>
+
+                  {/* Em Uso (Rua) */}
+                  <td className="px-6 py-4 text-center">
+                    {(material.emUso || 0) > 0 ? (
+                      <span className="font-semibold text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-100">
+                        {material.emUso}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+
+                  {/* Disponível (Prateleira) */}
+                  <td className="px-6 py-4 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <span
+                        className={`font-bold text-lg ${material.quantidade === 0 ? "text-red-600" : "text-green-600"}`}
+                      >
+                        {material.quantidade}
+                      </span>
+                      {material.quantidade <= 2 && (
+                        <AlertTriangle
+                          className={`size-4 ${material.quantidade === 0 ? "text-red-500" : "text-orange-500"}`}
+                        />
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Ações */}
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      {/* Botão de Editar (Visível para todos, permite ajustar stock na prateleira) */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setMaterialParaEditar(material)}
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        title="Ajustar Quantidade"
+                      >
+                        <Edit className="size-4" />
+                      </Button>
+
+                      {/* Botão de Excluir (Protegido: Visível APENAS para Administradores) */}
+                      {user?.role === "admin" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onExcluir(material.id, material.nome)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Remover Ferramenta do Sistema"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal para Editar a Quantidade (Abre quando clicamos no lápis) */}
+      <ModalEditarMaterial
+        material={materialParaEditar}
+        onFechar={() => setMaterialParaEditar(null)}
+      />
+    </>
   );
 }

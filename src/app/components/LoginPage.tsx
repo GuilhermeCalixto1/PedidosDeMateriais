@@ -1,40 +1,37 @@
-import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Button } from './ui/button';
-import { Package, Loader2 } from 'lucide-react';
-import { toast } from 'sonner'; // <-- IMPORT DO TOAST
+import React, { useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Button } from "./ui/button";
+import { Package, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export function LoginPage() {
   const { login } = useAuth();
-  const [matricula, setMatricula] = useState('');
-  const [senha, setSenha] = useState('');
+  const [matricula, setMatricula] = useState("");
+  const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!matricula || !senha) {
-      toast.warning('Por favor, preencha todos os campos.');
-      return;
-    }
+    if (!matricula || !senha)
+      return toast.warning("Por favor, preencha todos os campos.");
 
     setCarregando(true);
-
-    // O nosso AuthContext refatorado retorna um objeto com { error }
     const { error } = await login(matricula, senha);
 
     if (error) {
-      // ERRO: Exibe o toast vermelho com a mensagem vinda do serviço
-      toast.error(error); 
+      toast.error(error);
       setCarregando(false);
     } else {
-      // SUCESSO: Exibe um toast verde de boas-vindas
-      toast.success('Bem-vindo ao Sistema de Ferramentaria!');
-      // Não precisamos de fazer setCarregando(false) porque o App.tsx vai 
-      // desmontar este ecrã automaticamente quando detetar o utilizador logado.
+      toast.success("Bem-vindo ao Sistema de Ferramentaria!");
     }
   };
 
@@ -48,7 +45,7 @@ export function LoginPage() {
           Ferramentaria
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Faça login com a sua matrícula para continuar
+          Acesso Restrito - Faça login com a sua matrícula
         </p>
       </div>
 
@@ -60,11 +57,9 @@ export function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              
               <div className="space-y-2">
-                <Label htmlFor="matricula">Matrícula</Label>
+                <Label>Matrícula</Label>
                 <Input
-                  id="matricula"
                   type="text"
                   placeholder="Ex: 12345"
                   value={matricula}
@@ -73,11 +68,9 @@ export function LoginPage() {
                   required
                 />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="senha">Senha</Label>
+                <Label>Senha</Label>
                 <Input
-                  id="senha"
                   type="password"
                   placeholder="••••••••"
                   value={senha}
@@ -86,19 +79,17 @@ export function LoginPage() {
                   required
                 />
               </div>
-
-              <Button 
-                type="submit" 
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-md py-6" 
+              <Button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-md py-6"
                 disabled={carregando || !matricula || !senha}
               >
                 {carregando ? (
                   <>
-                    <Loader2 className="mr-2 size-5 animate-spin" />
-                    A validar credenciais...
+                    <Loader2 className="mr-2 size-5 animate-spin" />A validar...
                   </>
                 ) : (
-                  'Entrar no Sistema'
+                  "Entrar no Sistema"
                 )}
               </Button>
             </form>

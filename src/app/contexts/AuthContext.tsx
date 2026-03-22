@@ -1,12 +1,20 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authService } from '../services/authService';
-import { UsuarioLogado } from '../types/index';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { authService } from "../services/authService";
+import { UsuarioLogado } from "../types/index";
 
 interface AuthContextType {
   user: UsuarioLogado | null;
-  login: (matricula: string, senha: string) => Promise<{ error: string | null }>;
+  login: (
+    matricula: string,
+    senha: string,
+  ) => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
-  cadastrar: (nome: string, matricula: string, senha: string) => Promise<{ error: string | null }>;
+  cadastrar: (
+    nome: string,
+    matricula: string,
+    senha: string,
+    role: string,
+  ) => Promise<{ error: string | null }>;
   isAuthenticated: boolean;
   loading: boolean;
 }
@@ -19,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // 1. Verifica a sessão inicial através do serviço
-    authService.obterSessaoAtual().then(usuario => {
+    authService.obterSessaoAtual().then((usuario) => {
       setUser(usuario);
       setLoading(false);
     });
@@ -38,16 +46,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authService.login(matricula, senha);
       return { error: null };
     } catch (err: any) {
-      return { error: err.message || 'Erro inesperado ao fazer login.' };
+      return { error: err.message || "Erro inesperado ao fazer login." };
     }
   };
 
-  const cadastrar = async (nome: string, matricula: string, senha: string) => {
+  const cadastrar = async (
+    nome: string,
+    matricula: string,
+    senha: string,
+    role: string,
+  ) => {
     try {
-      await authService.cadastrar(nome, matricula, senha);
+      await authService.cadastrar(nome, matricula, senha, role);
       return { error: null };
     } catch (err: any) {
-      return { error: err.message || 'Erro inesperado ao cadastrar.' };
+      return { error: err.message || "Erro inesperado ao cadastrar." };
     }
   };
 
@@ -61,7 +74,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, cadastrar, isAuthenticated: !!user, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout,
+        cadastrar,
+        isAuthenticated: !!user,
+        loading,
+      }}
+    >
       {!loading && children}
     </AuthContext.Provider>
   );
@@ -70,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+    throw new Error("useAuth deve ser usado dentro de um AuthProvider");
   }
   return context;
 }

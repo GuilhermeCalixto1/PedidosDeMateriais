@@ -41,3 +41,11 @@ export interface Emprestimo {
 
 // DTO para registrar uma NOVA saída (não precisa de ID nem Status inicial)
 export type NovaSaidaDTO = Omit<Emprestimo, 'id' | 'status'>;
+
+// Adicione a linha do 'role' na sua interface existente
+export interface UsuarioLogado {
+  id: string;
+  nome: string;
+  matricula: string;
+  role: 'admin' | 'funcionario'; // <-- NOVA LINHA AQUI
+}
