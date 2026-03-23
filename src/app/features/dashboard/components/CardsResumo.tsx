@@ -1,89 +1,90 @@
 import React, { useMemo } from 'react';
-import { useMateriais } from '../../../contexts/MateriaisContext';
-import { useEmprestimos } from '../../../contexts/EmprestimosContext';
-import { useConfiguracoes } from '../../../contexts/ConfiguracoesContext'; // <-- NOVO IMPORT
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Package, Wrench, AlertCircle, Clock } from 'lucide-react';
+import { Card, CardContent } from '../../../components/ui/card';
+import { Package, Wrench, AlertTriangle, Layers } from 'lucide-react';
+import { Emprestimo, Material } from '../../../types';
 
-export function CardsResumo() {
-  const { materiais } = useMateriais();
-  const { emprestimos } = useEmprestimos();
-  const { configuracoes } = useConfiguracoes(); // <-- PUXANDO OS LIMITES DAQUI
+interface CardsResumoProps {
+  emprestimosFiltrados: Emprestimo[];
+  emprestimosTotais: Emprestimo[];
+  materiais: Material[];
+}
 
-  const stats = useMemo(() => {
-    const estoqueDisponivel = materiais.reduce((acc, curr) => acc + curr.quantidade, 0);
-    const unidadesEmprestadas = emprestimos
-      .filter(e => e.status === 'Pendente')
-      .reduce((acc, curr) => acc + (Number(curr.quantidade) || 0), 0);
+export function CardsResumo({ emprestimosFiltrados, emprestimosTotais, materiais }: CardsResumoProps) {
+  
+  const metricas = useMemo(() => {
+    // Pegamos TUDO o que está pendente hoje, independentemente da data de saída
+    const pendentesGerais = emprestimosTotais.filter(e => e.status === 'Pendente');
+    
+    // 1. Ferramentas que estão na Rua
+    let ferramentasNaRua = 0;
+    pendentesGerais.forEach(e => ferramentasNaRua += (Number(e.quantidade) || 0));
 
-    const estoqueTotal = estoqueDisponivel + unidadesEmprestadas;
-    const emprestimosAtivos = emprestimos.filter(e => e.status === 'Pendente').length;
+    // 2. Patrimônio Total (Prateleira + Rua)
+    let ferramentasNaPrateleira = 0;
+    materiais.forEach(m => ferramentasNaPrateleira += (Number(m.quantidade) || 0));
+    const patrimonioTotal = ferramentasNaPrateleira + ferramentasNaRua;
 
-    return { estoqueDisponivel, unidadesEmprestadas, estoqueTotal, emprestimosAtivos };
-  }, [materiais, emprestimos]);
+    // 3. Alertas de Atraso (>7 dias na rua)
+    const atrasados = pendentesGerais.filter(e => {
+      if (!e.data_saida) return false;
+      const dias = (new Date().getTime() - new Date(e.data_saida).getTime()) / (1000 * 3600 * 24);
+      return dias > 7;
+    });
 
-  // Usamos a variável dinâmica em vez do número 15 fixo
-  const emCargaAlta = stats.emprestimosAtivos >= configuracoes.limiteCargaAlta;
+    // 4. Devoluções do Período (Aqui sim usamos o filtro da "Máquina do Tempo")
+    const devolvidosNoPeriodo = emprestimosFiltrados.filter(e => e.status === 'Devolvido').length;
+
+    return {
+      patrimonioTotal,
+      ferramentasNaRua,
+      devolucoesConcluidas: devolvidosNoPeriodo,
+      alertasAtraso: atrasados.length
+    };
+  }, [emprestimosFiltrados, emprestimosTotais, materiais]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-      <Card className="bg-white shadow-sm border-t-4 border-t-blue-600">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-gray-600">Patrimônio Total</CardTitle>
-          <Package className="size-4 text-blue-600" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-gray-900">{stats.estoqueTotal}</div>
-          <p className="text-[10px] text-gray-500 mt-1 uppercase">Na empresa</p>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-white shadow-sm border-t-4 border-t-green-500">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-gray-600">Estoque Disponível</CardTitle>
-          <Package className="size-4 text-green-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-green-700">{stats.estoqueDisponivel}</div>
-          <p className="text-[10px] text-gray-500 mt-1 uppercase">Pronto a usar</p>
-        </CardContent>
-      </Card>
-      
-      <Card className="bg-white shadow-sm border-t-4 border-t-yellow-500">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-gray-600">Em Uso (Fora)</CardTitle>
-          <Clock className="size-4 text-yellow-600" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-yellow-700">{stats.unidadesEmprestadas}</div>
-          <p className="text-[10px] text-gray-500 mt-1 uppercase">Unidades emprestadas</p>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-white shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-gray-600">Modelos de Itens</CardTitle>
-          <Wrench className="size-4 text-gray-600" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-gray-900">{materiais.length}</div>
-          <p className="text-[10px] text-gray-500 mt-1 uppercase">Cadastrados</p>
-        </CardContent>
-      </Card>
-
-      {/* CARTÃO DINÂMICO DE FLUXO DE PEDIDOS */}
-      <Card className={`shadow-sm ${emCargaAlta ? 'bg-red-50' : 'bg-white'}`}>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Fluxo de Pedidos</CardTitle>
-          <AlertCircle className={`size-4 ${emCargaAlta ? 'text-red-500' : 'text-gray-400'}`} />
-        </CardHeader>
-        <CardContent>
-          <div className={`text-2xl font-bold ${emCargaAlta ? 'text-red-700' : 'text-green-600'}`}>
-            {emCargaAlta ? 'Carga Alta' : 'Estável'}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* CARD 1: O Patrimônio Total que tinha sumido! */}
+      <Card className="bg-white border-l-4 border-l-blue-600 shadow-sm">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Patrimônio Total (Unid.)</p>
+            <h3 className="text-2xl font-bold text-gray-900">{metricas.patrimonioTotal}</h3>
           </div>
-          <p className="text-[10px] text-gray-500 mt-1 uppercase">
-            {stats.emprestimosAtivos} / {configuracoes.limiteCargaAlta} cartões
-          </p>
+          <div className="p-3 bg-blue-50 rounded-full"><Layers className="size-5 text-blue-600" /></div>
+        </CardContent>
+      </Card>
+
+      {/* CARD 2: Ferramentas na Rua */}
+      <Card className="bg-white border-l-4 border-l-orange-500 shadow-sm">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Na Rua Agora</p>
+            <h3 className="text-2xl font-bold text-gray-900">{metricas.ferramentasNaRua}</h3>
+          </div>
+          <div className="p-3 bg-orange-50 rounded-full"><Wrench className="size-5 text-orange-600" /></div>
+        </CardContent>
+      </Card>
+
+      {/* CARD 3: Devoluções no Período Filtrado */}
+      <Card className="bg-white border-l-4 border-l-emerald-500 shadow-sm">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Devoluções (Período)</p>
+            <h3 className="text-2xl font-bold text-gray-900">{metricas.devolucoesConcluidas}</h3>
+          </div>
+          <div className="p-3 bg-emerald-50 rounded-full"><Package className="size-5 text-emerald-600" /></div>
+        </CardContent>
+      </Card>
+
+      {/* CARD 4: Alertas */}
+      <Card className="bg-white border-l-4 border-l-red-500 shadow-sm">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">Alertas de Atraso (&gt;7 dias)</p>
+            <h3 className="text-2xl font-bold text-gray-900">{metricas.alertasAtraso}</h3>
+          </div>
+          <div className="p-3 bg-red-50 rounded-full"><AlertTriangle className="size-5 text-red-600" /></div>
         </CardContent>
       </Card>
     </div>

@@ -1,49 +1,35 @@
 import React, { useMemo } from 'react';
-import { useEmprestimos } from '../../../contexts/EmprestimosContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Package } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { Emprestimo } from '../../../types';
 import { AcoesGrafico } from './AcoesGrafico';
 
-export function GraficoTopItens() {
-  const { emprestimos } = useEmprestimos();
-
-  const dadosTopEmprestimos = useMemo(() => {
+export function GraficoTopItens({ emprestimos }: { emprestimos: Emprestimo[] }) {
+  const dados = useMemo(() => {
     const contagem: Record<string, number> = {};
     emprestimos.forEach(e => {
-      const qtd = Number(e.quantidade) || 0;
-      contagem[e.materialSolicitado] = (contagem[e.materialSolicitado] || 0) + qtd;
+      const item = e.materialSolicitado || 'Desconhecido';
+      contagem[item] = (contagem[item] || 0) + (Number(e.quantidade) || 0);
     });
-    
-    return Object.entries(contagem)
-      .map(([nome, quantidade]) => ({ nome, quantidade }))
-      .sort((a, b) => b.quantidade - a.quantidade)
-      .slice(0, 5);
+    return Object.entries(contagem).map(([nome, total]) => ({ nome, total })).sort((a,b) => b.total - a.total).slice(0, 10);
   }, [emprestimos]);
 
   return (
-    <Card id="grafico-top-itens" className="shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle className="text-lg">Top 5: Mais Emprestados (Geral)</CardTitle>
-        <AcoesGrafico
-          elementId="grafico-top-itens"
-          titulo="Top 5 Mais Emprestados"
-          dados={dadosTopEmprestimos}
-        />
+    <Card id="top-itens-graf" className="shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div className="flex items-center gap-2"><Package className="size-5 text-blue-600" /><CardTitle className="text-lg">Top 10 Ferramentas Mais Requisitadas</CardTitle></div>
+        <AcoesGrafico elementId="top-itens-graf" titulo="Top 10 Ferramentas" dados={dados} />
       </CardHeader>
-      <CardContent className="h-80">
-        {dadosTopEmprestimos.length === 0 ? (
-           <div className="h-full flex items-center justify-center text-gray-400 italic">Sem dados de movimentação</div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dadosTopEmprestimos} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.3} />
-              <XAxis type="number" />
-              <YAxis dataKey="nome" type="category" width={100} tick={{ fontSize: 12 }} />
-              <Tooltip formatter={(value) => [`${value} unidades`, 'Total Saídas']} />
-              <Bar dataKey="quantidade" fill="#2563eb" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
+      <CardContent className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={dados}>
+            <XAxis dataKey="nome" tick={{fontSize: 10}} angle={-10} textAnchor="end" interval={0} />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="total" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   );

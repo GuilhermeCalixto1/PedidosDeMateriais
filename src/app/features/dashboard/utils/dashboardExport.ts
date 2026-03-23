@@ -1,82 +1,68 @@
-import { exportarParaExcel } from '../../../utils/exportador';
-import { Emprestimo, Material } from '../../../types';
+import { saveAs } from 'file-saver';
+import * as XLSX from 'xlsx';
+import html2canvas from 'html2canvas';
 
-type Linha = Record<string, string | number>;
-
-export function imprimirElementoPorId(elementId: string, titulo: string) {
-  const elemento = document.getElementById(elementId);
-  if (!elemento) {
-    alert('Nao foi possivel localizar o grafico para impressao.');
+// Exporta dados para Excel
+export const exportarGraficoExcel = (titulo: string, dados: any[]) => {
+  if (!dados || dados.length === 0) {
+    console.error("Não existem dados para exportar.");
     return;
   }
 
-  const janela = window.open('', '_blank', 'width=1200,height=900');
-  if (!janela) {
-    alert('Nao foi possivel abrir a janela de impressao. Verifique bloqueio de pop-up.');
-    return;
+  const worksheet = XLSX.utils.json_to_sheet(dados);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
+  
+  const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  
+  saveAs(data, `${titulo.replace(/\s+/g, '_')}_${new Date().toLocaleDateString()}.xlsx`);
+};
+
+// Gera captura e prepara e-mail
+export const enviarGraficoPorEmail = async (elementId: string, titulo: string) => {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+
+  try {
+    const canvas = await html2canvas(element, {
+      backgroundColor: '#ffffff',
+      scale: 2, // Aumenta a qualidade da imagem
+      logging: false
+    });
+    
+    const image = canvas.toDataURL("image/png");
+    
+    // Nota: Protocolo mailto não permite anexos automáticos por segurança do navegador.
+    // O link abre o e-mail e o utilizador pode colar (Ctrl+V) a imagem se o cliente suportar.
+    const subject = encodeURIComponent(`Relatório: ${titulo}`);
+    const body = encodeURIComponent(`Olá,\n\nSegue em anexo a captura do gráfico: ${titulo}.\n\n(Pode colar a imagem capturada diretamente no corpo do e-mail).`);
+    
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    
+    // Opcional: Copiar imagem para o clipboard para facilitar o Ctrl+V
+    canvas.toBlob((blob) => {
+      if (blob) {
+        navigator.clipboard.write([
+          new ClipboardItem({ "image/png": blob })
+        ]).catch(() => console.log("Não foi possível copiar automaticamente para o clipboard."));
+      }
+    });
+
+  } catch (error) {
+    console.error("Erro ao gerar imagem para e-mail:", error);
   }
+};
 
-  janela.document.write(`
-    <html>
-      <head>
-        <title>${titulo}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 24px; }
-          h1 { font-size: 20px; margin-bottom: 16px; }
-        </style>
-      </head>
-      <body>
-        <h1>${titulo}</h1>
-        ${elemento.outerHTML}
-      </body>
-    </html>
-  `);
-
-  janela.document.close();
-  janela.focus();
-  setTimeout(() => {
-    janela.print();
-    janela.close();
-  }, 300);
-}
-
-export function exportarGraficoExcel(titulo: string, dados: Linha[]) {
-  exportarParaExcel(dados, titulo.replace(/\s+/g, '_'), Object.keys(dados[0] || {}).reduce((acc, chave) => {
-    acc[chave] = chave;
-    return acc;
-  }, {} as Record<string, string>));
-}
-
-export function enviarGraficoPorEmail(titulo: string, dados: Linha[]) {
-  const linhas = dados.slice(0, 20).map((item) => Object.values(item).join(' | ')).join('\n');
-  const corpo = [
-    `Segue o resumo do grafico: ${titulo}`,
-    '',
-    'Preview dos dados (max 20 linhas):',
-    linhas || 'Sem dados para o periodo selecionado.',
-    '',
-    'Obs: para anexar o arquivo, use primeiro o botao de Exportar Excel e depois anexe manualmente no seu cliente de email.'
-  ].join('\n');
-
-  const mailto = `mailto:?subject=${encodeURIComponent(`Dashboard - ${titulo}`)}&body=${encodeURIComponent(corpo)}`;
-  window.location.href = mailto;
-}
-
-export function gerarDadosConsolidadosDashboard(emprestimos: Emprestimo[], materiais: Material[]): Linha[] {
-  const pendentes = emprestimos.filter((e) => e.status === 'Pendente').length;
-  const devolvidos = emprestimos.filter((e) => e.status === 'Devolvido').length;
-  const totalMateriais = materiais.length;
-  const totalUnidadesEstoque = materiais.reduce((acc, item) => acc + (Number(item.quantidade) || 0), 0);
-  const totalUnidadesEmprestadas = emprestimos
-    .filter((e) => e.status === 'Pendente')
-    .reduce((acc, e) => acc + (Number(e.quantidade) || 0), 0);
-
-  return [
-    { indicador: 'Total de modelos de materiais', valor: totalMateriais },
-    { indicador: 'Total de unidades em estoque', valor: totalUnidadesEstoque },
-    { indicador: 'Total de unidades emprestadas (pendentes)', valor: totalUnidadesEmprestadas },
-    { indicador: 'Quantidade de emprestimos pendentes', valor: pendentes },
-    { indicador: 'Quantidade de emprestimos devolvidos', valor: devolvidos },
-    { indicador: 'Data de geracao', valor: new Date().toLocaleString('pt-BR') }
-  ];
-}
+// Gera dados consolidados para o botão Excel Geral do topo
+export const gerarDadosConsolidadosDashboard = (emprestimos: any[], materiais: any[]) => {
+  return emprestimos.map(e => ({
+    'Data de Saída': e.data_saida ? new Date(e.data_saida).toLocaleDateString() : '---',
+    'Material': e.materialSolicitado,
+    'Qtd': e.quantidade,
+    'Funcionário': e.usuario,
+    'Gerência': e.gerencia || '---',
+    'Status': e.status,
+    'Data de Devolução': e.data_devolucao ? new Date(e.data_devolucao).toLocaleDateString() : 'Pendente'
+  }));
+};

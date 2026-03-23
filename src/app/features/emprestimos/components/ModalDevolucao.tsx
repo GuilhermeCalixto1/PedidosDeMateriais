@@ -1,81 +1,111 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
-import { Button } from '../../../components/ui/button';
+import { toast } from 'sonner';
+import { z } from 'zod';
+import { DevolucaoSchema } from '../../../utils/validacoes';
 
-// Definimos o que o Modal precisa para ser desenhado e funcionar
 interface ModalDevolucaoProps {
   emprestimo: any;
   dataDevolucao: string;
   setDataDevolucao: (data: string) => void;
   nomeRecebedor: string;
   matriculaRecebedor: string;
+  setNomeRecebedor?: (nome: string) => void;
+  setMatriculaRecebedor?: (mat: string) => void;
   processando: boolean;
   onConfirmar: () => void;
   onCancelar: () => void;
 }
 
 export function ModalDevolucao({
-  emprestimo,
-  dataDevolucao,
-  setDataDevolucao,
-  nomeRecebedor,
-  matriculaRecebedor,
-  processando,
-  onConfirmar,
-  onCancelar
+  emprestimo, 
+  dataDevolucao, setDataDevolucao, 
+  nomeRecebedor, setNomeRecebedor,
+  matriculaRecebedor, setMatriculaRecebedor,
+  processando, onConfirmar, onCancelar
 }: ModalDevolucaoProps) {
   
-  // Se não houver empréstimo selecionado, não desenhamos nada
   if (!emprestimo) return null;
 
+  const handleConfirmar = () => {
+    try {
+      DevolucaoSchema.parse({
+        nomeRecebedor,
+        matriculaRecebedor,
+      });
+
+      onConfirmar();
+      
+    }  catch (error) {
+      // Forçamos o TypeScript a aceitar a estrutura do erro do Zod
+      const err = error as any;
+      
+      if (err.errors && err.errors.length > 0) {
+        toast.error(err.errors[0].message);
+      } else {
+        toast.error("Erro ao validar os dados do recebedor.");
+      }
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm print:hidden">
-      <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader>
-          <CardTitle className="text-xl">Confirmar Devolução</CardTitle>
-          <CardDescription>
-            Ferramenta: <strong className="text-gray-800">{emprestimo.materialSolicitado}</strong>
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Data da Devolução *</Label>
-            <Input type="date" value={dataDevolucao} onChange={e => setDataDevolucao(e.target.value)} required />
+    <Dialog open={!!emprestimo} onOpenChange={(open) => { if (!open) onCancelar(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Confirmar Devolução</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="bg-blue-50 text-blue-900 p-3 rounded-md text-sm border border-blue-100">
+            <p className="font-semibold mb-1">Detalhes da Ferramenta:</p>
+            <p><strong>Item:</strong> {emprestimo.materialSolicitado}</p>
+            <p><strong>Qtd a Devolver:</strong> {emprestimo.quantidade}</p>
+            <p><strong>Retirado por:</strong> {emprestimo.usuario}</p>
           </div>
+
           <div className="space-y-2">
-            <Label>Nome de quem está a receber</Label>
+            <Label>Data da Devolução</Label>
+            <Input 
+              type="date" 
+              value={dataDevolucao} 
+              onChange={(e) => setDataDevolucao(e.target.value)} 
+              disabled={processando} 
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Recebido por (Nome)</Label>
             <Input 
               value={nomeRecebedor} 
-              readOnly 
-              className="bg-gray-100 text-gray-600 cursor-not-allowed border-gray-200" 
-              title="Preenchido automaticamente com o utilizador autenticado" 
+              onChange={(e) => setNomeRecebedor && setNomeRecebedor(e.target.value)} 
+              disabled={processando}
+              placeholder="Nome do almoxarife"
             />
           </div>
+
           <div className="space-y-2">
-            <Label>Matrícula de quem está a receber</Label>
+            <Label>Matrícula do Recebedor</Label>
             <Input 
               value={matriculaRecebedor} 
-              readOnly 
-              className="bg-gray-100 text-gray-600 cursor-not-allowed border-gray-200" 
-              title="Preenchido automaticamente com o utilizador autenticado" 
+              onChange={(e) => setMatriculaRecebedor && setMatriculaRecebedor(e.target.value)} 
+              disabled={processando}
+              placeholder="Ex: 123456"
             />
           </div>
-          <div className="flex gap-3 pt-4">
-            <Button variant="outline" className="flex-1" onClick={onCancelar} disabled={processando}>
-              Cancelar
-            </Button>
-            <Button 
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white" 
-              onClick={onConfirmar} 
-              disabled={processando || !nomeRecebedor || !matriculaRecebedor}
-            >
-              {processando ? 'A guardar...' : 'Confirmar Recebimento'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0 mt-2">
+          <Button variant="outline" onClick={onCancelar} disabled={processando}>
+            Cancelar
+          </Button>
+          <Button onClick={handleConfirmar} disabled={processando} className="bg-blue-600 hover:bg-blue-700">
+            {processando ? 'A processar...' : 'Confirmar Devolução'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,109 +1,70 @@
 import React, { useMemo } from 'react';
-import { useEmprestimos } from '../../../contexts/EmprestimosContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Users } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Emprestimo } from '../../../types';
 import { AcoesGrafico } from './AcoesGrafico';
 
-// COMPONENTE DO BALÃO PERSONALIZADO
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    const dados = payload[0].payload;
-    return (
-      <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-xl min-w-[200px]">
-        <p className="font-bold text-gray-900 text-base">{dados.nomeCurto}</p>
-        <div className="mt-1 space-y-1">
-          <p className="text-xs text-gray-600">
-            <span className="font-semibold">Matrícula:</span> {dados.matricula}
-          </p>
-          <p className="text-xs text-gray-600">
-            <span className="font-semibold">Gerência:</span> {dados.gerencia}
-          </p>
-        </div>
-        <div className="mt-2 pt-2 border-t border-gray-100">
-          <p className="font-bold text-red-600 text-sm">
-            {dados.quantidade} unidades retidas
-          </p>
-        </div>
-      </div>
-    );
-  }
-  return null;
-};
+interface Props { emprestimos: Emprestimo[]; }
 
-export function GraficoRankingFuncionarios() {
-  const { emprestimos } = useEmprestimos();
+export function GraficoRankingFuncionarios({ emprestimos }: Props) {
+  const dados = useMemo(() => {
+    const contagem: Record<string, { total: number, matricula: string }> = {};
+    
+    // Filtra apenas o que está pendente hoje (Acumuladores)
+    emprestimos.filter(e => e.status === 'Pendente').forEach(e => {
+      const usuarioCompleto = e.usuario || 'Desconhecido';
+      let nomeLimpo = usuarioCompleto;
+      let matriculaStr = '---';
 
-  const dadosRanking = useMemo(() => {
-    // Agora guardamos um objeto completo para cada utilizador
-    const contagem: Record<string, { nomeCurto: string; matricula: string; gerencia: string; quantidade: number }> = {};
-    
-    emprestimos
-      .filter(e => e.status === 'Pendente')
-      .forEach(e => {
-        // Separa o nome da matrícula a partir do texto "Nome (Mat: 12345)"
-        const partesNome = e.usuario.split(' (Mat: ');
-        const nomeCurto = partesNome[0];
-        const matricula = partesNome[1] ? partesNome[1].replace(')', '') : 'N/A';
-        const gerencia = e.gerencia || 'Não Informada';
-        
-        // Usamos a matrícula e o nome como chave única para não misturar pessoas com o mesmo nome
-        const chaveUnica = `${matricula}-${nomeCurto}`;
-        
-        if (!contagem[chaveUnica]) {
-          contagem[chaveUnica] = { nomeCurto, matricula, gerencia, quantidade: 0 };
-        }
-        
-        contagem[chaveUnica].quantidade += (Number(e.quantidade) || 0);
-      });
-    
-    return Object.values(contagem)
-      .sort((a, b) => b.quantidade - a.quantidade)
-      .slice(0, 5);
+      if (usuarioCompleto.includes('(Mat:')) {
+        const partes = usuarioCompleto.split('(Mat:');
+        nomeLimpo = partes[0].trim();
+        matriculaStr = partes[1].replace(')', '').trim();
+      }
+
+      if (!contagem[nomeLimpo]) contagem[nomeLimpo] = { total: 0, matricula: matriculaStr };
+      contagem[nomeLimpo].total += (Number(e.quantidade) || 0);
+    });
+
+    return Object.entries(contagem)
+      .map(([nome, info]) => ({ nome, total: info.total, matricula: info.matricula }))
+      .sort((a, b) => b.total - a.total).slice(0, 5);
   }, [emprestimos]);
 
-  return (
-    <Card id="grafico-ranking-funcionarios" className="shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-        <div className="flex items-center gap-2">
-          <Users className="size-5 text-red-500" />
-          <CardTitle className="text-lg">Ranking de Retenção (Acumuladores)</CardTitle>
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const d = payload[0].payload;
+      return (
+        <div className="bg-white p-3 border border-red-200 shadow-xl rounded-lg">
+          <p className="font-bold text-gray-800">{d.nome}</p>
+          <p className="text-xs text-red-600 font-mono">Matrícula: {d.matricula}</p>
+          <p className="text-sm mt-1 font-semibold">{d.total} itens retidos</p>
         </div>
-        <AcoesGrafico
-          elementId="grafico-ranking-funcionarios"
-          titulo="Ranking de Retencao (Acumuladores)"
-          dados={dadosRanking.map((item) => ({
-            funcionario: item.nomeCurto,
-            matricula: item.matricula,
-            gerencia: item.gerencia,
-            quantidade: item.quantidade
-          }))}
-        />
+      );
+    }
+    return null;
+  };
+
+  return (
+    <Card id="ranking-acumuladores" className="shadow-sm border-t-4 border-t-red-500">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div className="flex items-center gap-2">
+          <Users className="size-5 text-red-600" />
+          <CardTitle className="text-lg text-red-700">Ranking de Acumuladores</CardTitle>
+        </div>
+        <AcoesGrafico elementId="ranking-acumuladores" titulo="Ranking de Acumuladores" dados={dados} />
       </CardHeader>
       <CardContent className="h-64">
-        {dadosRanking.length === 0 ? (
-           <div className="h-full flex items-center justify-center text-gray-400 italic">Nenhum item retido no momento</div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dadosRanking} layout="vertical" margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.3} />
-              <XAxis type="number" tick={{ fontSize: 12 }} />
-              
-              {/* O Eixo Y volta a mostrar apenas o Nome Curto */}
-              <YAxis 
-                dataKey="nomeCurto" 
-                type="category" 
-                width={120} 
-                tick={{ fontSize: 12 }} 
-              />
-              
-              {/* Injetamos o nosso Balão Personalizado aqui */}
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
-              
-              <Bar dataKey="quantidade" fill="#ef4444" radius={[0, 4, 4, 0]} name="Unidades" />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={dados} layout="vertical" margin={{ left: 10, right: 30 }}>
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.2} />
+            <XAxis type="number" hide />
+            <YAxis dataKey="nome" type="category" width={100} tick={{ fontSize: 11, fontWeight: 'bold' }} />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar dataKey="total" fill="#ef4444" radius={[0, 4, 4, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   );

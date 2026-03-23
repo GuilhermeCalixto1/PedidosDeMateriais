@@ -1,15 +1,13 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button } from '../../components/ui/button';
-import { Mail, Printer, Sheet } from 'lucide-react';
-import { toast } from 'sonner';
+import { Printer, Sheet, CalendarDays } from 'lucide-react';
 import { useEmprestimos } from '../../contexts/EmprestimosContext';
 import { useMateriais } from '../../contexts/MateriaisContext';
-import { enviarGraficoPorEmail, exportarGraficoExcel, gerarDadosConsolidadosDashboard } from './utils/dashboardExport';
+import { exportarGraficoExcel, gerarDadosConsolidadosDashboard } from './utils/dashboardExport';
 
-// Importação dos componentes
 import { CardsResumo } from './components/CardsResumo';
 import { GraficoGerencia } from './components/GraficoGerencia';
-import { GraficoTotalPorGerencia } from './components/GraficoTotalPorGerencia'; // <-- NOVO IMPORT
+import { GraficoTotalPorGerencia } from './components/GraficoTotalPorGerencia';
 import { GraficoRankingFuncionarios } from './components/GraficoRankingFuncionarios';
 import { GraficoDevolucao } from './components/GraficoDevolucao';
 import { GraficoEnvelhecimento } from './components/GraficoEnvelhecimento';
@@ -23,67 +21,103 @@ export function Dashboard() {
   const { emprestimos } = useEmprestimos();
   const { materiais } = useMateriais();
 
-  const dadosConsolidados = gerarDadosConsolidadosDashboard(emprestimos, materiais);
+  const [filtroTempo, setFiltroTempo] = useState<'todos' | '30dias' | 'esteMes' | 'mesPassado' | '6meses'>('todos');
+
+  // FUNÇÃO AUXILIAR: Verifica se uma data está no intervalo selecionado
+  const estaNoIntervalo = (dataString: string | null | undefined, filtro: string) => {
+    if (!dataString) return false;
+    const data = new Date(dataString);
+    const hoje = new Date();
+
+    if (filtro === '30dias') {
+      const limite = new Date();
+      limite.setDate(hoje.getDate() - 30);
+      return data >= limite;
+    }
+    if (filtro === 'esteMes') {
+      return data.getMonth() === hoje.getMonth() && data.getFullYear() === hoje.getFullYear();
+    }
+    if (filtro === 'mesPassado') {
+      const mesPassado = new Date();
+      mesPassado.setMonth(hoje.getMonth() - 1);
+      return data.getMonth() === mesPassado.getMonth() && data.getFullYear() === mesPassado.getFullYear();
+    }
+    if (filtro === '6meses') {
+      const limite = new Date();
+      limite.setMonth(hoje.getMonth() - 6);
+      return data >= limite;
+    }
+    return true; // Para 'todos'
+  };
+
+  const emprestimosFiltrados = useMemo(() => {
+    if (filtroTempo === 'todos') return emprestimos;
+
+    return emprestimos.filter(emp => {
+      // REGRA DE OURO: O registro aparece se a SAÍDA foi no período OU a DEVOLUÇÃO foi no período
+      const saiuNoPeriodo = estaNoIntervalo(emp.data_saida, filtroTempo);
+      const devolveuNoPeriodo = estaNoIntervalo(emp.data_devolucao, filtroTempo);
+
+      return saiuNoPeriodo || devolveuNoPeriodo;
+    });
+  }, [emprestimos, filtroTempo]);
+
+  const dadosConsolidados = gerarDadosConsolidadosDashboard(emprestimosFiltrados, materiais);
 
   return (
-    <div id="dashboard-completo" className="space-y-6 pb-12">
-      {/* Cabeçalho da Página */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div id="dashboard-completo" className="space-y-6 pb-12 overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-4">
         <div>
-          <h2 className="text-2xl font-semibold">Visão Geral</h2>
-          <p className="text-gray-600 mt-1">Indicadores de desempenho e controle de estoque</p>
+          <h2 className="text-2xl font-semibold text-gray-800">Painel de Controlo</h2>
+          <p className="text-gray-500 text-sm">Monitorização de estoque e movimentações</p>
         </div>
-        <div className="flex items-center gap-2 print:hidden">
-          <Button variant="outline" size="sm" onClick={() => window.print()} title="Imprimir dashboard">
-            <Printer className="size-4 mr-1" /> Imprimir
+        
+        <div className="flex flex-wrap items-center gap-3 print:hidden">
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm">
+            <CalendarDays className="size-4 text-blue-600" />
+            <select 
+              value={filtroTempo}
+              onChange={(e) => setFiltroTempo(e.target.value as any)}
+              className="bg-transparent border-none text-sm font-semibold focus:ring-0 outline-none cursor-pointer text-gray-700"
+            >
+              <option value="todos">Histórico Completo</option>
+              <option value="30dias">Últimos 30 Dias</option>
+              <option value="esteMes">Este Mês</option>
+              <option value="mesPassado">Mês Passado</option>
+              <option value="6meses">Últimos 6 Meses</option>
+            </select>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => window.print()} className="h-9">
+            <Printer className="size-4 mr-2" /> Imprimir Tudo
           </Button>
-          <Button variant="outline" size="sm" onClick={() => {
-              exportarGraficoExcel('Dashboard_Consolidado', dadosConsolidados);
-              toast.success('Consolidado da dashboard exportado.');
-            }} title="Exportar dashboard">
-            <Sheet className="size-4 mr-1" /> Excel
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => {
-              enviarGraficoPorEmail('Dashboard Consolidado', dadosConsolidados);
-              toast.info('Cliente de e-mail aberto.');
-            }}>
-            <Mail className="size-4 mr-1" /> E-mail
+          <Button variant="outline" size="sm" onClick={() => exportarGraficoExcel('Relatorio_Geral', dadosConsolidados)} className="h-9 text-green-700 border-green-200 hover:bg-green-50">
+            <Sheet className="size-4 mr-2" /> Excel Geral
           </Button>
         </div>
       </div>
 
-      {/* MÉTRICAS PRINCIPAIS */}
-      <CardsResumo />
+      <CardsResumo emprestimosFiltrados={emprestimosFiltrados} emprestimosTotais={emprestimos} materiais={materiais} />
 
-      {/* GRELHA DE INTELIGÊNCIA DE NEGÓCIO */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <GraficoGerencia emprestimos={emprestimosFiltrados} />
+        <GraficoTotalPorGerencia /> 
         
-        {/* LINHA 1: Análise de Setores (Comparação de Ativos vs Histórico) */}
-        <GraficoGerencia />
-        <GraficoTotalPorGerencia />
+        <GraficoRankingFuncionarios emprestimos={emprestimosFiltrados} />
+        <GraficoDevolucao emprestimos={emprestimosFiltrados} />
         
-        {/* LINHA 2: Análise de Pessoas e Retenção */}
-        <GraficoRankingFuncionarios />
-        <GraficoDevolucao />
+        <GraficoEnvelhecimento emprestimos={emprestimos} />
+        <PainelEstoqueCritico /> 
         
-        {/* LINHA 3: Prazos e Materiais Críticos */}
-        <GraficoEnvelhecimento />
-        <PainelEstoqueCritico />
-        
-        {/* LINHA 4: Top Itens (Ocupa 2 colunas para ficar maior) */}
         <div className="lg:col-span-2">
-          <GraficoTopItens />
+            <GraficoFluxoDiario emprestimos={emprestimosFiltrados} />
         </div>
         
-        {/* LINHA 5: Análise Temporal Contínua (Ocupa as 2 colunas) */}
         <div className="lg:col-span-2">
-          <GraficoFluxoDiario />
+            <GraficoTopItens emprestimos={emprestimosFiltrados} />
         </div>
-
-        {/* LINHA 6: Análise de Sazonalidade e Famílias de Materiais */}
-        <GraficoMapaCalor />
-        <GraficoCategoria />
         
+        <GraficoMapaCalor emprestimos={emprestimosFiltrados} />
+        <GraficoCategoria emprestimos={emprestimosFiltrados} />
       </div>
     </div>
   );

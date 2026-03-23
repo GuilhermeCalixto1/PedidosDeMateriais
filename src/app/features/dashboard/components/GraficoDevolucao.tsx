@@ -1,94 +1,71 @@
-import React, { useMemo, useState } from 'react';
-import { useEmprestimos } from '../../../contexts/EmprestimosContext';
+// src/app/features/dashboard/components/GraficoDevolucao.tsx
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { PieChart as PieIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { AcoesGrafico } from './AcoesGrafico';
 
-export function GraficoDevolucao() {
-  const { emprestimos } = useEmprestimos();
-  const [periodoStatus, setPeriodoStatus] = useState('total');
-
-  const dadosStatus = useMemo(() => {
-    let filtrados = emprestimos;
+export function GraficoDevolucao({ emprestimos }: { emprestimos: any[] }) {
+  const dados = useMemo(() => {
+    // Contagem direta por status
+    const devolvidos = emprestimos.filter(e => e.status === 'Devolvido').length;
+    const pendentes = emprestimos.filter(e => e.status === 'Pendente').length;
     
-    if (periodoStatus !== 'total') {
-      const dias = parseInt(periodoStatus);
-      const hoje = new Date();
-      hoje.setHours(23, 59, 59, 999);
-      
-      const dataLimite = new Date();
-      dataLimite.setDate(hoje.getDate() - dias);
-      dataLimite.setHours(0, 0, 0, 0);
-
-      filtrados = emprestimos.filter(e => {
-        if (!e.data_saida) return false;
-        const partes = e.data_saida.split('-');
-        if (partes.length !== 3) return false;
-        const dataEmprestimo = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
-        return dataEmprestimo >= dataLimite && dataEmprestimo <= hoje;
-      });
-    }
-
-    let pendentes = 0;
-    let devolvidos = 0;
-
-    filtrados.forEach(e => {
-      const qtd = Number(e.quantidade) || 0;
-      if (e.status === 'Pendente') pendentes += qtd;
-      if (e.status === 'Devolvido') devolvidos += qtd;
-    });
+    const total = devolvidos + pendentes;
+    if (total === 0) return [];
 
     return [
-      { name: 'Pendentes', value: pendentes },
-      { name: 'Devolvidos', value: devolvidos }
-    ];
-  }, [emprestimos, periodoStatus]);
-
-  const CORES_STATUS = ['#eab308', '#22c55e'];
+      { 
+        name: 'Devolvidos', 
+        value: devolvidos, 
+        color: '#10b981', 
+        percent: ((devolvidos / total) * 100).toFixed(1) 
+      },
+      { 
+        name: 'Pendentes', 
+        value: pendentes, 
+        color: '#f59e0b', 
+        percent: ((pendentes / total) * 100).toFixed(1) 
+      }
+    ].filter(d => d.value > 0);
+  }, [emprestimos]);
 
   return (
-    <Card id="grafico-devolucao" className="shadow-sm">
-      <CardHeader className="flex flex-row items-start sm:items-center justify-between gap-2 pb-2">
-        <CardTitle className="text-lg">Taxa de Devolução (%)</CardTitle>
-        <div className="flex items-center gap-1">
-          <Select value={periodoStatus} onValueChange={setPeriodoStatus}>
-            <SelectTrigger className="w-[140px] h-8 text-xs bg-gray-50">
-              <SelectValue placeholder="Período" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="total">Todo o Período</SelectItem>
-              <SelectItem value="7">Últimos 7 dias</SelectItem>
-              <SelectItem value="30">Últimos 30 dias</SelectItem>
-            </SelectContent>
-          </Select>
-          <AcoesGrafico
-            elementId="grafico-devolucao"
-            titulo="Taxa de Devolucao"
-            dados={dadosStatus.map((item) => ({ status: item.name, total: item.value }))}
-          />
+    <Card id="graf-devolucao-final" className="shadow-sm overflow-visible">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <div className="flex items-center gap-2">
+          <PieIcon className="size-5 text-indigo-600" />
+          <CardTitle className="text-lg">Taxa de Devolução (%)</CardTitle>
         </div>
+        <AcoesGrafico elementId="graf-devolucao-final" titulo="Taxa de Devolução" dados={dados} />
       </CardHeader>
-      <CardContent className="h-80">
-        {dadosStatus.every(d => d.value === 0) ? (
-          <div className="h-full flex items-center justify-center text-gray-400 italic">Sem registros neste período</div>
+      <CardContent className="h-64">
+        {dados.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-gray-400 italic">Sem dados</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie
-                data={dadosStatus} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value" stroke="none" labelLine={true}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+              <Pie 
+                data={dados} 
+                innerRadius={60} 
+                outerRadius={80} 
+                paddingAngle={5} 
+                dataKey="value"
+                // Padrão Categoria: Porcentagem fora com linha
+                label={({ percent }) => `${(percent * 100).toFixed(1)}%`}
+                labelLine={true}
               >
-                {dadosStatus.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={CORES_STATUS[index % CORES_STATUS.length]} />
+                {dados.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number) => {
-                const total = dadosStatus.reduce((acc, curr) => acc + curr.value, 0);
-                const perc = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-                return [`${perc}% (${value} unid.)`, 'Proporção'];
-              }} />
-              <Legend verticalAlign="bottom" height={36}/>
+              <Tooltip 
+                formatter={(value: any, name: any, props: any) => [
+                  `${value} itens (${props.payload.percent}%)`, 
+                  name
+                ]} 
+              />
+              <Legend verticalAlign="bottom" height={36} />
             </PieChart>
           </ResponsiveContainer>
         )}
