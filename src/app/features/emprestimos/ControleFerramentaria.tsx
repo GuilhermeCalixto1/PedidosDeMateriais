@@ -58,6 +58,9 @@ export function ControleFerramentaria() {
 
   const [grupoParaImprimir, setGrupoParaImprimir] = useState<any>(null);
 
+  // ESTADO DE PAGINAÇÃO: 20 cartões visíveis
+  const [quantidadeVisivel, setQuantidadeVisivel] = useState(20);
+
   useEffect(() => {
     const handleAfterPrint = () => setGrupoParaImprimir(null);
     window.addEventListener("afterprint", handleAfterPrint);
@@ -70,6 +73,11 @@ export function ControleFerramentaria() {
   const [filtroDataFim, setFiltroDataFim] = useState("");
   const [filtroGerencia, setFiltroGerencia] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
+
+  // Resetar a quantidade visível sempre que um filtro ou aba mudar
+  useEffect(() => {
+    setQuantidadeVisivel(20);
+  }, [abaAtiva, buscaTexto, filtroDataInicio, filtroDataFim, filtroGerencia, filtroCategoria]);
 
   // Estados para a Devolução
   const [emprestimoParaDevolver, setEmprestimoParaDevolver] =
@@ -157,6 +165,9 @@ export function ControleFerramentaria() {
     );
   }, [emprestimosFiltrados]);
 
+  // 3. CARTÕES VISÍVEIS (PAGINAÇÃO)
+  const gruposVisiveis = gruposDeEmprestimo.slice(0, quantidadeVisivel);
+
   // Helpers
   const pendentesParaImprimir = useMemo(
     () => emprestimosFiltrados.filter((e) => e.status === "Pendente"),
@@ -227,7 +238,6 @@ export function ControleFerramentaria() {
   const apagarCartaoPendente = async (grupo: any) => {
     if (grupo.status !== "Pendente") return;
 
-    // PROTEÇÃO LÓGICA: Se não for admin, bloqueia imediatamente.
     if (user?.role !== "admin") {
       toast.error(
         "Acesso negado: Apenas administradores podem apagar registos.",
@@ -255,7 +265,6 @@ export function ControleFerramentaria() {
     }
   };
 
-  // Funções de Impressão e Exportação
   const handleImprimirListaGeral = () => {
     setGrupoParaImprimir(null);
     setTimeout(() => window.print(), 100);
@@ -412,7 +421,7 @@ export function ControleFerramentaria() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {gruposDeEmprestimo.map((grupo) => (
+                {gruposVisiveis.map((grupo) => (
                   <div
                     key={grupo.id}
                     className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden transition-all hover:shadow-md"
@@ -466,7 +475,6 @@ export function ControleFerramentaria() {
                           <Printer className="size-4" />
                         </Button>
 
-                        {/* PROTEÇÃO VISUAL: O botão de lixeira só aparece se for Admin */}
                         {grupo.status === "Pendente" &&
                           user?.role === "admin" && (
                             <Button
@@ -555,13 +563,25 @@ export function ControleFerramentaria() {
                 ))}
               </div>
             )}
+            
+            {/* BOTÃO DE CARREGAR MAIS CARTÕES */}
+            {quantidadeVisivel < gruposDeEmprestimo.length && (
+              <div className="flex justify-center mt-6 mb-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setQuantidadeVisivel(prev => prev + 20)}
+                  className="w-full max-w-md border-dashed border-2 hover:bg-gray-50 text-gray-600 font-medium py-6"
+                >
+                  Mostrar mais cartões...
+                </Button>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 
         {emprestimosFiltrados.length > 0 && (
           <div className="text-center text-sm text-gray-500 pb-4">
-            Exibindo {emprestimosFiltrados.length} itens (agrupados em{" "}
-            {gruposDeEmprestimo.length} registos)
+            Exibindo {gruposVisiveis.length} de {gruposDeEmprestimo.length} cartões (Total de {emprestimosFiltrados.length} ferramentas)
           </div>
         )}
 

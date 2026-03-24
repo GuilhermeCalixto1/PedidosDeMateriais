@@ -21,7 +21,8 @@ export function Dashboard() {
   const { emprestimos } = useEmprestimos();
   const { materiais } = useMateriais();
 
-  const [filtroTempo, setFiltroTempo] = useState<'todos' | '30dias' | 'esteMes' | 'mesPassado' | '6meses'>('todos');
+  // 1. Estado atualizado apenas com as opções desejadas
+  const [filtroTempo, setFiltroTempo] = useState<'todos' | '30dias' | '6meses' | '12meses'>('todos');
 
   // FUNÇÃO AUXILIAR: Verifica se uma data está no intervalo selecionado
   const estaNoIntervalo = (dataString: string | null | undefined, filtro: string) => {
@@ -34,17 +35,15 @@ export function Dashboard() {
       limite.setDate(hoje.getDate() - 30);
       return data >= limite;
     }
-    if (filtro === 'esteMes') {
-      return data.getMonth() === hoje.getMonth() && data.getFullYear() === hoje.getFullYear();
-    }
-    if (filtro === 'mesPassado') {
-      const mesPassado = new Date();
-      mesPassado.setMonth(hoje.getMonth() - 1);
-      return data.getMonth() === mesPassado.getMonth() && data.getFullYear() === mesPassado.getFullYear();
-    }
     if (filtro === '6meses') {
       const limite = new Date();
       limite.setMonth(hoje.getMonth() - 6);
+      return data >= limite;
+    }
+    // 2. Nova lógica para os 12 meses (1 ano para trás)
+    if (filtro === '12meses') {
+      const limite = new Date();
+      limite.setFullYear(hoje.getFullYear() - 1);
       return data >= limite;
     }
     return true; // Para 'todos'
@@ -54,7 +53,7 @@ export function Dashboard() {
     if (filtroTempo === 'todos') return emprestimos;
 
     return emprestimos.filter(emp => {
-      // REGRA DE OURO: O registro aparece se a SAÍDA foi no período OU a DEVOLUÇÃO foi no período
+      // O registro aparece se a SAÍDA foi no período OU a DEVOLUÇÃO foi no período
       const saiuNoPeriodo = estaNoIntervalo(emp.data_saida, filtroTempo);
       const devolveuNoPeriodo = estaNoIntervalo(emp.data_devolucao, filtroTempo);
 
@@ -75,6 +74,7 @@ export function Dashboard() {
         <div className="flex flex-wrap items-center gap-3 print:hidden">
           <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm">
             <CalendarDays className="size-4 text-blue-600" />
+            {/* 3. Menu limpo com as novas opções visuais */}
             <select 
               value={filtroTempo}
               onChange={(e) => setFiltroTempo(e.target.value as any)}
@@ -82,9 +82,8 @@ export function Dashboard() {
             >
               <option value="todos">Histórico Completo</option>
               <option value="30dias">Últimos 30 Dias</option>
-              <option value="esteMes">Este Mês</option>
-              <option value="mesPassado">Mês Passado</option>
               <option value="6meses">Últimos 6 Meses</option>
+              <option value="12meses">Últimos 12 Meses</option>
             </select>
           </div>
           <Button variant="outline" size="sm" onClick={() => window.print()} className="h-9">
