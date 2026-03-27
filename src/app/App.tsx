@@ -15,6 +15,7 @@ import { HistoricoAuditoria } from "./features/auditoria/HistoricoAuditoria";
 import { GerenciamentoUsuarios } from "./features/usuarios/GerenciamentoUsuarios";
 import { Notificacoes } from "./components/Notificacoes";
 import { ModalAlterarSenha } from "./components/ModalAlterarSenha";
+import { Logo } from "./components/Logo";
 
 // UI e Ícones
 import { Button } from "./components/ui/button";
@@ -116,17 +117,12 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40 backdrop-blur-md bg-white/80">
+      <header className="border-b border-gray-200 shadow-sm sticky top-0 z-40 backdrop-blur-md bg-white/80">
         <div className="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
           {/* Logo e Nome do Sistema */}
           <div className="flex items-center gap-4">
-            <div className="p-2 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-blue-200 shadow-lg">
-              <Package className="size-5 text-white" />
-            </div>
+            <Logo className="size-10" />
             <div>
-              <h1 className="font-bold text-gray-900 leading-tight hidden sm:block">
-                Ferramentaria
-              </h1>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500 font-medium">
                   {user?.nome}
