@@ -18,6 +18,7 @@ export interface Material extends MaterialDTO {
   id: string;
   total?: number; // <-- ADICIONADO
   emUso?: number; // <-- ADICIONADO
+  avariadas?: number;
 }
 
 export interface Emprestimo {

@@ -64,22 +64,34 @@ export const emprestimosService = {
   },
 
   // 3. Registar a devolução (e devolver ao stock)
-  async registrarDevolucao(emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string }) {
+  async registrarDevolucao(emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string; em_perfeitas_condicoes: boolean; observacao_avaria?: string }) {
+    const PREFIXO_AVARIA = '[AVARIA]';
+    const observacaoAvariaLimpa = (dadosDevolucao.observacao_avaria || '').trim();
+    const observacaoAtual = (emprestimo.observacao || '').trim();
+    const observacaoFinal = !dadosDevolucao.em_perfeitas_condicoes
+      ? (observacaoAtual
+        ? `${observacaoAtual} | ${PREFIXO_AVARIA} ${observacaoAvariaLimpa}`
+        : `${PREFIXO_AVARIA} ${observacaoAvariaLimpa}`)
+      : undefined;
+
     const { error: errUpdate } = await supabase
       .from('emprestimos')
       .update({ 
         status: 'Devolvido',
         data_devolucao: dadosDevolucao.data_devolucao,
-        responsavel_recebimento: dadosDevolucao.responsavel_recebimento
+        responsavel_recebimento: dadosDevolucao.responsavel_recebimento,
+        ...(observacaoFinal ? { observacao: observacaoFinal } : {})
       })
       .eq('id', emprestimo.id);
 
     if (errUpdate) throw new Error(`Erro ao atualizar status de devolução: ${errUpdate.message}`);
 
-    const materialData = await buscarMaterialPorNome(emprestimo.materialSolicitado);
-    if (materialData) {
-      const novaQnt = Math.max(0, Number(materialData.quantidade) + Number(emprestimo.quantidade));
-      await supabase.from('materiais').update({ quantidade: novaQnt }).eq('id', materialData.id);
+    if (dadosDevolucao.em_perfeitas_condicoes) {
+      const materialData = await buscarMaterialPorNome(emprestimo.materialSolicitado);
+      if (materialData) {
+        const novaQnt = Math.max(0, Number(materialData.quantidade) + Number(emprestimo.quantidade));
+        await supabase.from('materiais').update({ quantidade: novaQnt }).eq('id', materialData.id);
+      }
     }
   },
 

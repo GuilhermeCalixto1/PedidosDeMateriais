@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
+import { Textarea } from '../../../components/ui/textarea';
 import { toast } from 'sonner';
-import { z } from 'zod';
 import { DevolucaoSchema } from '../../../utils/validacoes';
 
 interface ModalDevolucaoProps {
@@ -13,8 +13,12 @@ interface ModalDevolucaoProps {
   setDataDevolucao: (data: string) => void;
   nomeRecebedor: string;
   matriculaRecebedor: string;
-  setNomeRecebedor?: (nome: string) => void;
-  setMatriculaRecebedor?: (mat: string) => void;
+  setNomeRecebedor: (nome: string) => void;
+  setMatriculaRecebedor: (mat: string) => void;
+  emPerfeitasCondicoes: boolean;
+  setEmPerfeitasCondicoes: (valor: boolean) => void;
+  observacaoAvaria: string;
+  setObservacaoAvaria: (valor: string) => void;
   processando: boolean;
   onConfirmar: () => void;
   onCancelar: () => void;
@@ -25,6 +29,10 @@ export function ModalDevolucao({
   dataDevolucao, setDataDevolucao, 
   nomeRecebedor, setNomeRecebedor,
   matriculaRecebedor, setMatriculaRecebedor,
+  emPerfeitasCondicoes,
+  setEmPerfeitasCondicoes,
+  observacaoAvaria,
+  setObservacaoAvaria,
   processando, onConfirmar, onCancelar
 }: ModalDevolucaoProps) {
   
@@ -36,6 +44,11 @@ export function ModalDevolucao({
         nomeRecebedor,
         matriculaRecebedor,
       });
+
+      if (!emPerfeitasCondicoes && !observacaoAvaria.trim()) {
+        toast.error('Descreva o que aconteceu com o material avariado.');
+        return;
+      }
 
       onConfirmar();
       
@@ -80,7 +93,7 @@ export function ModalDevolucao({
             <Label>Recebido por (Nome)</Label>
             <Input 
               value={nomeRecebedor} 
-              onChange={(e) => setNomeRecebedor && setNomeRecebedor(e.target.value)} 
+              onChange={(e) => setNomeRecebedor(e.target.value)} 
               disabled={processando}
               placeholder="Nome do almoxarife"
             />
@@ -90,11 +103,51 @@ export function ModalDevolucao({
             <Label>Matrícula do Recebedor</Label>
             <Input 
               value={matriculaRecebedor} 
-              onChange={(e) => setMatriculaRecebedor && setMatriculaRecebedor(e.target.value)} 
+              onChange={(e) => setMatriculaRecebedor(e.target.value)} 
               disabled={processando}
               placeholder="Ex: 123456"
             />
           </div>
+
+          <div className="space-y-2">
+            <Label>Item(s) em perfeitas condições?</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={emPerfeitasCondicoes ? 'default' : 'outline'}
+                className={emPerfeitasCondicoes ? 'bg-green-600 hover:bg-green-700' : ''}
+                disabled={processando}
+                onClick={() => {
+                  setEmPerfeitasCondicoes(true);
+                  setObservacaoAvaria('');
+                }}
+              >
+                Sim
+              </Button>
+              <Button
+                type="button"
+                variant={!emPerfeitasCondicoes ? 'default' : 'outline'}
+                className={!emPerfeitasCondicoes ? 'bg-red-600 hover:bg-red-700' : ''}
+                disabled={processando}
+                onClick={() => setEmPerfeitasCondicoes(false)}
+              >
+                Não
+              </Button>
+            </div>
+          </div>
+
+          {!emPerfeitasCondicoes && (
+            <div className="space-y-2">
+              <Label>Observação da Avaria</Label>
+              <Textarea
+                value={observacaoAvaria}
+                onChange={(e) => setObservacaoAvaria(e.target.value)}
+                disabled={processando}
+                placeholder="Descreva o dano, defeito ou problema encontrado no material"
+                rows={4}
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0 mt-2">

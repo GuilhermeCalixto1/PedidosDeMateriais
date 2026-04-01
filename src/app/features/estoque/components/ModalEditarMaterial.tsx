@@ -15,12 +15,14 @@ interface ModalEditarMaterialProps {
 export function ModalEditarMaterial({ material, onFechar }: ModalEditarMaterialProps) {
   const { atualizarQuantidade } = useMateriais();
   const [quantidade, setQuantidade] = useState('');
+  const [avariadas, setAvariadas] = useState('');
   const [processando, setProcessando] = useState(false);
 
-  // Quando o modal abre, preenche o input com a quantidade atual da ferramenta
+  // Quando o modal abre, preenche os inputs com os valores atuais da ferramenta
   useEffect(() => {
     if (material) {
       setQuantidade(material.quantidade.toString());
+      setAvariadas((material.avariadas || 0).toString());
     }
   }, [material]);
 
@@ -28,14 +30,21 @@ export function ModalEditarMaterial({ material, onFechar }: ModalEditarMaterialP
     if (!material) return;
     
     const novaQtd = Number(quantidade);
+    const novasAvariadas = Number(avariadas);
+    
     if (isNaN(novaQtd) || novaQtd < 0) {
       toast.error('Por favor, insira uma quantidade válida.');
+      return;
+    }
+    
+    if (isNaN(novasAvariadas) || novasAvariadas < 0) {
+      toast.error('Por favor, insira uma quantidade válida para avariadas.');
       return;
     }
 
     setProcessando(true);
     try {
-      await atualizarQuantidade(material.id, novaQtd);
+      await atualizarQuantidade(material.id, novaQtd, novasAvariadas);
       toast.success(`Estoque de "${material.nome}" atualizado com sucesso!`);
       onFechar();
     } catch (error) {
@@ -60,7 +69,7 @@ export function ModalEditarMaterial({ material, onFechar }: ModalEditarMaterialP
           </div>
           
           <div className="space-y-2">
-            <Label>Nova Quantidade na Prateleira</Label>
+            <Label>Quantidade na Prateleira</Label>
             <Input 
               type="number" 
               min="0" 
@@ -70,7 +79,21 @@ export function ModalEditarMaterial({ material, onFechar }: ModalEditarMaterialP
               autoFocus
             />
             <p className="text-xs text-gray-500 mt-1">
-              Nota: O sistema calculará automaticamente o património total somando esta quantidade com as ferramentas que estão emprestadas.
+              O sistema calculará o património total somando esta quantidade, as emprestadas e as avariadas.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Quantidade de Ferramentas Avariadas em Estoque</Label>
+            <Input 
+              type="number" 
+              min="0" 
+              value={avariadas} 
+              onChange={(e) => setAvariadas(e.target.value)}
+              className="text-lg font-bold"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Total de ferramentas danificadas armazenadas no estoque.
             </p>
           </div>
         </div>

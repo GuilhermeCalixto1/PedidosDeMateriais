@@ -7,7 +7,7 @@ interface EmprestimosContextType {
   emprestimos: Emprestimo[];
   carregando: boolean;
   adicionarEmprestimo: (novaSaida: NovaSaidaDTO, materialId?: string) => Promise<void>;
-  marcarComoDevolvido: (emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string }) => Promise<void>;
+  marcarComoDevolvido: (emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string; em_perfeitas_condicoes: boolean; observacao_avaria?: string }) => Promise<void>;
   excluirEmprestimoPendente: (emprestimo: Emprestimo) => Promise<void>;
   recarregarEmprestimos: () => Promise<void>;
 }
@@ -47,7 +47,7 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
     }
   };
 
-  const marcarComoDevolvido = async (emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string }) => {
+  const marcarComoDevolvido = async (emprestimo: Emprestimo, dadosDevolucao: { data_devolucao: string; responsavel_recebimento: string; em_perfeitas_condicoes: boolean; observacao_avaria?: string }) => {
     try {
       await emprestimosService.registrarDevolucao(emprestimo, dadosDevolucao);
       
@@ -57,6 +57,7 @@ export function EmprestimosProvider({ children }: { children: React.ReactNode })
       await carregarEmprestimos();
     } catch (error) {
       console.error(error);
+      throw error;
     }
   };
 

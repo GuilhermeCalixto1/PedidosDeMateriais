@@ -25,11 +25,16 @@ export const materiaisService = {
     return data;
   },
 
-  // 3. Atualizar a quantidade de um material existente
-  async atualizarQuantidade(id: string, novaQuantidade: number) {
+  // 3. Atualizar a quantidade de um material existente (e avariadas opcionalmente)
+  async atualizarQuantidade(id: string, novaQuantidade: number, novasAvariadas?: number) {
+    const updateData: any = { quantidade: novaQuantidade };
+    if (novasAvariadas !== undefined) {
+      updateData.avariadas = novasAvariadas;
+    }
+    
     const { error } = await supabase
       .from('materiais')
-      .update({ quantidade: novaQuantidade })
+      .update(updateData)
       .eq('id', id);
 
     if (error) throw new Error(`Erro ao atualizar quantidade: ${error.message}`);

@@ -7,7 +7,7 @@ interface MateriaisContextType {
   materiais: Material[];
   carregando: boolean;
   adicionarMaterial: (novo: MaterialDTO) => Promise<void>;
-  atualizarQuantidade: (id: string, novaQuantidade: number) => Promise<void>;
+  atualizarQuantidade: (id: string, novaQuantidade: number, novasAvariadas?: number) => Promise<void>;
   excluirMaterial: (id: string) => Promise<void>;
   recarregarMateriais: () => Promise<void>;
 }
@@ -47,18 +47,21 @@ export function MateriaisProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const atualizarQuantidade = async (id: string, novaQuantidade: number) => {
+  const atualizarQuantidade = async (id: string, novaQuantidade: number, novasAvariadas?: number) => {
     // Guarda o material antigo para saber o que mudou
     const materialAntigo = materiais.find(m => m.id === id);
     
-    setMateriais(prev => prev.map(m => m.id === id ? { ...m, quantidade: novaQuantidade } : m));
+    setMateriais(prev => prev.map(m => m.id === id ? { ...m, quantidade: novaQuantidade, avariadas: novasAvariadas !== undefined ? novasAvariadas : m.avariadas } : m));
     
     try {
-      await materiaisService.atualizarQuantidade(id, novaQuantidade);
+      await materiaisService.atualizarQuantidade(id, novaQuantidade, novasAvariadas);
       
       // REGISTO DE AUDITORIA
       if (materialAntigo && materialAntigo.quantidade !== novaQuantidade) {
         registrarLog('Inventário', 'Atualizar Quantidade', `Alterou o stock de "${materialAntigo.nome}" de ${materialAntigo.quantidade} para ${novaQuantidade}`);
+      }
+      if (materialAntigo && novasAvariadas !== undefined && materialAntigo.avariadas !== novasAvariadas) {
+        registrarLog('Inventário', 'Atualizar Avariadas', `Alterou as ferramentas avariadas de "${materialAntigo.nome}" de ${materialAntigo.avariadas || 0} para ${novasAvariadas}`);
       }
     } catch (error) {
       console.error(error);

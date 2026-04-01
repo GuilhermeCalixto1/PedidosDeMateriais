@@ -87,6 +87,17 @@ export function ControleFerramentaria() {
   );
   const [nomeRecebedor, setNomeRecebedor] = useState("");
   const [matriculaRecebedor, setMatriculaRecebedor] = useState("");
+  const [emPerfeitasCondicoes, setEmPerfeitasCondicoes] = useState(true);
+  const [observacaoAvaria, setObservacaoAvaria] = useState("");
+
+  const PREFIXO_AVARIA = "[AVARIA]";
+
+  const extrairObservacaoAvaria = (observacao?: string) => {
+    if (!observacao) return "";
+    const indice = observacao.indexOf(PREFIXO_AVARIA);
+    if (indice === -1) return "";
+    return observacao.slice(indice + PREFIXO_AVARIA.length).trim();
+  };
 
   // 1. FILTRAGEM ROBUSTA
   const emprestimosFiltrados = useMemo(() => {
@@ -210,6 +221,8 @@ export function ControleFerramentaria() {
       setMatriculaRecebedor(user.matricula);
     }
     setDataDevolucao(new Date().toISOString().split("T")[0]);
+    setEmPerfeitasCondicoes(true);
+    setObservacaoAvaria("");
   };
 
   const confirmarDevolucao = async () => {
@@ -220,6 +233,8 @@ export function ControleFerramentaria() {
       await marcarComoDevolvido(emprestimoParaDevolver, {
         data_devolucao: dataDevolucao,
         responsavel_recebimento: `${nomeRecebedor} (Mat: ${matriculaRecebedor})`,
+        em_perfeitas_condicoes: emPerfeitasCondicoes,
+        observacao_avaria: observacaoAvaria,
       });
       if (recarregarMateriais) await recarregarMateriais();
       toast.success(
@@ -228,6 +243,8 @@ export function ControleFerramentaria() {
       setEmprestimoParaDevolver(null);
       setNomeRecebedor("");
       setMatriculaRecebedor("");
+      setEmPerfeitasCondicoes(true);
+      setObservacaoAvaria("");
     } catch (error) {
       toast.error("Erro ao registar devolução.");
     } finally {
@@ -522,9 +539,14 @@ export function ControleFerramentaria() {
                                 >
                                   Qtd: {item.quantidade}
                                 </Badge>
-                                {item.observacao && (
+                                {item.observacao && !extrairObservacaoAvaria(item.observacao) && (
                                   <span className="text-xs text-gray-500 italic border-l pl-3">
                                     Obs: {item.observacao}
+                                  </span>
+                                )}
+                                {extrairObservacaoAvaria(item.observacao) && (
+                                  <span className="text-xs text-red-700 font-medium border-l pl-3">
+                                    Avaria: {extrairObservacaoAvaria(item.observacao)}
                                   </span>
                                 )}
                                 {item.status === "Devolvido" &&
@@ -595,7 +617,13 @@ export function ControleFerramentaria() {
         dataDevolucao={dataDevolucao}
         setDataDevolucao={setDataDevolucao}
         nomeRecebedor={nomeRecebedor}
+        setNomeRecebedor={setNomeRecebedor}
         matriculaRecebedor={matriculaRecebedor}
+        setMatriculaRecebedor={setMatriculaRecebedor}
+        emPerfeitasCondicoes={emPerfeitasCondicoes}
+        setEmPerfeitasCondicoes={setEmPerfeitasCondicoes}
+        observacaoAvaria={observacaoAvaria}
+        setObservacaoAvaria={setObservacaoAvaria}
         processando={processando}
         onConfirmar={confirmarDevolucao}
         onCancelar={() => setEmprestimoParaDevolver(null)}
