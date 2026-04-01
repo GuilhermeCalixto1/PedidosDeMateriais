@@ -45,6 +45,7 @@ export function TabelaEstoque({
                 <th className="px-6 py-4">Categoria</th>
                 <th className="px-6 py-4 text-center">Património Total</th>
                 <th className="px-6 py-4 text-center">Em Uso (Rua)</th>
+                <th className="px-6 py-4 text-center">Avariadas em Estoque</th>
                 <th className="px-6 py-4 text-center">Disponível</th>
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
@@ -76,6 +77,9 @@ export function TabelaEstoque({
                   </td>
                   <td className="px-6 py-4 text-center text-yellow-600 font-semibold">
                     {material.emUso || 0}
+                  </td>
+                  <td className="px-6 py-4 text-center text-red-600 font-semibold">
+                    {material.avariadas || 0}
                   </td>
                   <td className="px-6 py-4 text-center">
                     <span

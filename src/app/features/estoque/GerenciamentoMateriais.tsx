@@ -44,6 +44,8 @@ export function GerenciamentoMateriais() {
   }, [materiais, buscaTexto, filtroCategoria]);
 
   const materiaisComTotais = useMemo(() => {
+    const PREFIXO_AVARIA = "[AVARIA]";
+
     return materiaisFiltrados.map((m) => {
       const pendentes = emprestimos.filter(
         (e) => e.status === "Pendente" && e.materialSolicitado === m.nome,
@@ -53,10 +55,22 @@ export function GerenciamentoMateriais() {
         0,
       );
 
+      const devolvidosAvariados = emprestimos.filter(
+        (e) =>
+          e.status === "Devolvido" &&
+          e.materialSolicitado === m.nome &&
+          (e.observacao || "").includes(PREFIXO_AVARIA),
+      );
+      const avariadas = devolvidosAvariados.reduce(
+        (acc, curr) => acc + (Number(curr.quantidade) || 0),
+        0,
+      );
+
       return {
         ...m,
-        emUso: emUso,
-        total: m.quantidade + emUso,
+        emUso,
+        avariadas,
+        total: m.quantidade + emUso + avariadas,
       };
     });
   }, [materiaisFiltrados, emprestimos]);

@@ -23,16 +23,15 @@ interface ItemCarrinho {
 
 export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
   const { adicionarEmprestimo } = useEmprestimos();
-  // IMPORTAMOS O atualizarQuantidade PARA DESCONTAR O ESTOQUE AUTOMATICAMENTE
   const { materiais, atualizarQuantidade } = useMateriais();
 
   const dataHoje = new Date().toISOString().split('T')[0];
 
   const [nomeSolicitante, setNomeSolicitante] = useState('');
-  const [matriculaSolicitante, setMatriculaSolicitante] = useState('');
+  const [matriculaSolicitante, setMatriculaSolicitante] = useState(''); // <-- VOLTOU
   const [gerencia, setGerencia] = useState('');
-  const [dataSaida, setDataSaida] = useState(dataHoje);
-  const [observacao, setObservacao] = useState('');
+  const [dataSaida, setDataSaida] = useState(dataHoje); // <-- VOLTOU
+  const [observacao, setObservacao] = useState(''); // <-- VOLTOU
   
   const [itensCarrinho, setItensCarrinho] = useState<ItemCarrinho[]>([]);
   const [modalSelecaoAberto, setModalSelecaoAberto] = useState(false);
@@ -94,18 +93,16 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
       const usuarioFormatado = `${nomeSolicitante} (Mat: ${matriculaSolicitante})`;
 
       for (const item of itensCarrinho) {
-        // 1. Regista a saída
         await adicionarEmprestimo({
           usuario: usuarioFormatado,
           materialSolicitado: item.nome,
           material_categoria: item.categoria,
           gerencia: gerencia,
           quantidade: item.quantidade,
-          data_saida: dataSaida,
-          observacao: observacao
+          data_saida: dataSaida, // <-- ENVIANDO PARA O BANCO
+          observacao: observacao, // <-- ENVIANDO PARA O BANCO
         }, item.id);
         
-        // 2. DESCONTA DO ESTOQUE (Estoque Atual - Quantidade Retirada)
         await atualizarQuantidade(item.id, item.estoque - item.quantidade);
       }
 
@@ -131,11 +128,29 @@ export function FormularioSaida({ onFechar }: FormularioSaidaProps) {
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Dados da Saída</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-blue-50/50 rounded-lg border border-blue-100">
-                <div className="space-y-2"><Label>Nome Completo *</Label><Input value={nomeSolicitante} onChange={e => setNomeSolicitante(e.target.value)} required disabled={salvando} /></div>
-                <div className="space-y-2"><Label>Matrícula *</Label><Input value={matriculaSolicitante} onChange={e => setMatriculaSolicitante(e.target.value)} required disabled={salvando} /></div>
-                <div className="space-y-2"><Label>Gerência / Setor *</Label><Input value={gerencia} onChange={e => setGerencia(e.target.value)} required disabled={salvando} /></div>
-                <div className="space-y-2"><Label>Data de Saída *</Label><Input type="date" max={dataHoje} value={dataSaida} onChange={e => setDataSaida(e.target.value)} required disabled={salvando} /></div>
-                <div className="space-y-2 sm:col-span-2"><Label>Observação (Geral)</Label><Input value={observacao} onChange={e => setObservacao(e.target.value)} disabled={salvando} /></div>
+                <div className="space-y-2">
+                  <Label>Nome Completo *</Label>
+                  <Input value={nomeSolicitante} onChange={e => setNomeSolicitante(e.target.value)} required disabled={salvando} />
+                </div>
+                {/* CAMPO VOLTOU AQUI */}
+                <div className="space-y-2">
+                  <Label>Matrícula *</Label>
+                  <Input value={matriculaSolicitante} onChange={e => setMatriculaSolicitante(e.target.value)} required disabled={salvando} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Gerência / Setor *</Label>
+                  <Input value={gerencia} onChange={e => setGerencia(e.target.value)} required disabled={salvando} />
+                </div>
+                {/* CAMPO VOLTOU AQUI */}
+                <div className="space-y-2">
+                  <Label>Data de Saída *</Label>
+                  <Input type="date" max={dataHoje} value={dataSaida} onChange={e => setDataSaida(e.target.value)} required disabled={salvando} />
+                </div>
+                {/* CAMPO VOLTOU AQUI */}
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Observação (Geral)</Label>
+                  <Input value={observacao} onChange={e => setObservacao(e.target.value)} disabled={salvando} />
+                </div>
               </div>
             </div>
 

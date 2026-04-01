@@ -1,20 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuditoria } from '../../contexts/AuditoriaContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { ShieldCheck, Search, Package, ClipboardList, Settings, Clock } from 'lucide-react';
 
 export function HistoricoAuditoria() {
   const { logs } = useAuditoria();
   const [busca, setBusca] = useState('');
+  
+  // ESTADO DE PAGINAÇÃO: 20 registos visíveis
+  const [quantidadeVisivel, setQuantidadeVisivel] = useState(20);
 
-  // Motor de pesquisa em tempo real (Procura por pessoa, ação ou detalhes)
+  // Resetar a quantidade de visíveis quando a pesquisa muda
+  useEffect(() => {
+    setQuantidadeVisivel(20);
+  }, [busca]);
+
+  // Motor de pesquisa
   const logsFiltrados = logs.filter(log => 
     log.usuario.toLowerCase().includes(busca.toLowerCase()) ||
     log.acao.toLowerCase().includes(busca.toLowerCase()) ||
     log.detalhes.toLowerCase().includes(busca.toLowerCase())
   );
+
+  // Corta a lista para mostrar apenas a quantidade desejada
+  const logsVisiveis = logsFiltrados.slice(0, quantidadeVisivel);
 
   const formatarDataHora = (isoString: string) => {
     const data = new Date(isoString);
@@ -59,7 +71,7 @@ export function HistoricoAuditoria() {
             />
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 flex flex-col">
           {logsFiltrados.length === 0 ? (
             <div className="p-12 text-center flex flex-col items-center justify-center">
               <Clock className="size-12 text-gray-300 mb-3" />
@@ -67,48 +79,70 @@ export function HistoricoAuditoria() {
               <p className="text-sm text-gray-500 mt-1">As atividades do sistema aparecerão aqui assim que ocorrerem.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-4 font-semibold">Data e Hora</th>
-                    <th className="px-6 py-4 font-semibold">Utilizador</th>
-                    <th className="px-6 py-4 font-semibold">Módulo</th>
-                    <th className="px-6 py-4 font-semibold">Ação</th>
-                    <th className="px-6 py-4 font-semibold">Detalhes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {logsFiltrados.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600 font-medium">
-                        {formatarDataHora(log.data_hora)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900">
-                        {log.usuario}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {getIconeModulo(log.modulo)}
-                          <span className="font-medium text-gray-700">{log.modulo}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge variant="outline" className="bg-white text-gray-700 font-semibold border-gray-200">
-                          {log.acao}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {log.detalhes}
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-6 py-4 font-semibold">Data e Hora</th>
+                      <th className="px-6 py-4 font-semibold">Utilizador</th>
+                      <th className="px-6 py-4 font-semibold">Módulo</th>
+                      <th className="px-6 py-4 font-semibold">Ação</th>
+                      <th className="px-6 py-4 font-semibold">Detalhes</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {/* Alterado de logsFiltrados para logsVisiveis */}
+                    {logsVisiveis.map((log) => (
+                      <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-600 font-medium">
+                          {formatarDataHora(log.data_hora)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900">
+                          {log.usuario}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            {getIconeModulo(log.modulo)}
+                            <span className="font-medium text-gray-700">{log.modulo}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <Badge variant="outline" className="bg-white text-gray-700 font-semibold border-gray-200">
+                            {log.acao}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 text-gray-600">
+                          {log.detalhes}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* BOTÃO DE CARREGAR MAIS LINHAS */}
+              {quantidadeVisivel < logsFiltrados.length && (
+                <div className="p-4 flex justify-center border-t border-gray-100 bg-gray-50/30">
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => setQuantidadeVisivel(prev => prev + 20)}
+                    className="w-full max-w-sm font-medium"
+                  >
+                    Carregar mais histórico...
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
+      
+      {logsFiltrados.length > 0 && (
+        <div className="text-center text-sm text-gray-500">
+          A exibir {logsVisiveis.length} de {logsFiltrados.length} registos
+        </div>
+      )}
     </div>
   );
 }

@@ -10,8 +10,9 @@ import {
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
-import { Package, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Logo } from "./Logo";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -38,12 +39,9 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md flex flex-col items-center">
-        <div className="p-3 bg-blue-600 rounded-xl mb-4 shadow-lg">
-          <Package className="size-10 text-white" />
+        <div className="p-3 bg-gray-100  rounded-xl mb-4 shadow-lg">
+          <Logo className="size-16" />
         </div>
-        <h2 className="text-center text-3xl font-extrabold text-gray-900">
-          Ferramentaria
-        </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Acesso Restrito - Faça login com a sua matrícula
         </p>

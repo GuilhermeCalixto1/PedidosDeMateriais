@@ -1,91 +1,100 @@
 import React, { useMemo } from 'react';
-import { useMateriais } from '../../../contexts/MateriaisContext';
-import { useEmprestimos } from '../../../contexts/EmprestimosContext';
-import { useConfiguracoes } from '../../../contexts/ConfiguracoesContext'; // <-- NOVO IMPORT
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Package, Wrench, AlertCircle, Clock } from 'lucide-react';
+import { Package, AlertTriangle, ClipboardList, Boxes, Wallet } from 'lucide-react';
 
-export function CardsResumo() {
-  const { materiais } = useMateriais();
-  const { emprestimos } = useEmprestimos();
-  const { configuracoes } = useConfiguracoes(); // <-- PUXANDO OS LIMITES DAQUI
+interface CardsResumoProps {
+  emprestimosFiltrados: any[];
+  emprestimosTotais: any[];
+  materiais: any[];
+}
 
+export function CardsResumo({ emprestimosFiltrados, emprestimosTotais, materiais }: CardsResumoProps) {
+  
   const stats = useMemo(() => {
-    const estoqueDisponivel = materiais.reduce((acc, curr) => acc + curr.quantidade, 0);
-    const unidadesEmprestadas = emprestimos
+    // 1. Empréstimos Ativos (Unidades que estão na rua agora)
+    const ativos = emprestimosTotais
       .filter(e => e.status === 'Pendente')
       .reduce((acc, curr) => acc + (Number(curr.quantidade) || 0), 0);
 
-    const estoqueTotal = estoqueDisponivel + unidadesEmprestadas;
-    const emprestimosAtivos = emprestimos.filter(e => e.status === 'Pendente').length;
+    // 2. Estoque Disponível (Soma de todas as unidades físicas em prateleira)
+    const disponivel = materiais.reduce((acc, curr) => acc + (Number(curr.quantidade) || 0), 0);
 
-    return { estoqueDisponivel, unidadesEmprestadas, estoqueTotal, emprestimosAtivos };
-  }, [materiais, emprestimos]);
+    // 3. Patrimônio Total (Tudo o que a empresa possui: Disponível + Emprestado)
+    const patrimonioTotal = disponivel + ativos;
 
-  // Usamos a variável dinâmica em vez do número 15 fixo
-  const emCargaAlta = stats.emprestimosAtivos >= configuracoes.limiteCargaAlta;
+    // 4. Materiais Cadastrados (Quantidade de modelos/tipos diferentes no inventário)
+    const totalTipos = materiais.length;
+
+    // 5. Itens em Alerta (Estoque abaixo do mínimo)
+    const alertas = materiais.filter(m => m.quantidade <= (m.quantidade_minima || 5)).length;
+
+    return { ativos, disponivel, patrimonioTotal, totalTipos, alertas };
+  }, [emprestimosTotais, materiais]);
 
   return (
+    // Ajustei a grid para suportar 5 colunas em telas grandes (lg:grid-cols-5)
     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-      <Card className="bg-white shadow-sm border-t-4 border-t-blue-600">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-gray-600">Patrimônio Total</CardTitle>
-          <Package className="size-4 text-blue-600" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-gray-900">{stats.estoqueTotal}</div>
-          <p className="text-[10px] text-gray-500 mt-1 uppercase">Na empresa</p>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-white shadow-sm border-t-4 border-t-green-500">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-gray-600">Estoque Disponível</CardTitle>
-          <Package className="size-4 text-green-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-green-700">{stats.estoqueDisponivel}</div>
-          <p className="text-[10px] text-gray-500 mt-1 uppercase">Pronto a usar</p>
-        </CardContent>
-      </Card>
       
-      <Card className="bg-white shadow-sm border-t-4 border-t-yellow-500">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-gray-600">Em Uso (Fora)</CardTitle>
-          <Clock className="size-4 text-yellow-600" />
+      {/* CARD 1: Patrimônio Total (NOVO) */}
+      <Card className="shadow-sm border-l-4 border-l-black bg-orange-50/10">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Patrimônio Total</CardTitle>
+          <Wallet className="size-4 text-black" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-yellow-700">{stats.unidadesEmprestadas}</div>
-          <p className="text-[10px] text-gray-500 mt-1 uppercase">Unidades emprestadas</p>
+          <div className="text-2xl font-bold text-black">{stats.patrimonioTotal}</div>
+          <p className="text-xs text-gray-500 mt-1">Total de ativos da empresa</p>
         </CardContent>
       </Card>
 
-      <Card className="bg-white shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium text-gray-600">Modelos de Itens</CardTitle>
-          <Wrench className="size-4 text-gray-600" />
+      {/* CARD 2: Estoque Disponível */}
+      <Card className="shadow-sm border-l-4 border-l-green-500">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Estoque Disponível</CardTitle>
+          <Boxes className="size-4 text-green-600" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-gray-900">{materiais.length}</div>
-          <p className="text-[10px] text-gray-500 mt-1 uppercase">Cadastrados</p>
+          <div className="text-2xl font-bold">{stats.disponivel}</div>
+          <p className="text-xs text-gray-500 mt-1">Unidades em prateleira</p>
         </CardContent>
       </Card>
 
-      {/* CARTÃO DINÂMICO DE FLUXO DE PEDIDOS */}
-      <Card className={`shadow-sm ${emCargaAlta ? 'bg-red-50' : 'bg-white'}`}>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-sm font-medium">Fluxo de Pedidos</CardTitle>
-          <AlertCircle className={`size-4 ${emCargaAlta ? 'text-red-500' : 'text-gray-400'}`} />
+      {/* CARD 3: Empréstimos Ativos */}
+      <Card className="shadow-sm border-l-4 border-l-blue-500">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Empréstimos Ativos</CardTitle>
+          <ClipboardList className="size-4 text-blue-600" />
         </CardHeader>
         <CardContent>
-          <div className={`text-2xl font-bold ${emCargaAlta ? 'text-red-700' : 'text-green-600'}`}>
-            {emCargaAlta ? 'Carga Alta' : 'Estável'}
-          </div>
-          <p className="text-[10px] text-gray-500 mt-1 uppercase">
-            {stats.emprestimosAtivos} / {configuracoes.limiteCargaAlta} cartões
-          </p>
+          <div className="text-2xl font-bold">{stats.ativos}</div>
+          <p className="text-xs text-gray-500 mt-1">Unidades em uso externo</p>
         </CardContent>
       </Card>
+
+      {/* CARD 4: Itens no Inventário */}
+      <Card className="shadow-sm border-l-4 border-l-indigo-500">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Modelos no Catálogo</CardTitle>
+          <Package className="size-4 text-indigo-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats.totalTipos}</div>
+          <p className="text-xs text-gray-500 mt-1">Tipos de ferramentas</p>
+        </CardContent>
+      </Card>
+
+      {/* CARD 5: Itens em Alerta */}
+      <Card className="shadow-sm border-l-4 border-l-red-500">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Atenção ao Estoque</CardTitle>
+          <AlertTriangle className="size-4 text-red-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{stats.alertas}</div>
+          <p className="text-xs text-gray-500 mt-1">Abaixo do nível mínimo</p>
+        </CardContent>
+      </Card>
+
     </div>
   );
 }
