@@ -59,7 +59,7 @@ export function LoginPage() {
                 <Label>Matrícula</Label>
                 <Input
                   type="text"
-                  placeholder="Ex: 12345"
+                  placeholder="Matrícula: CSO123 | Senha: abc123"
                   value={matricula}
                   onChange={(e) => setMatricula(e.target.value)}
                   disabled={carregando}
