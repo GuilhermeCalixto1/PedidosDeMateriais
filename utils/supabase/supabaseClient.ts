@@ -1,8 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
-import { projectId, publicAnonKey } from './info';
+import { createClient } from "@supabase/supabase-js";
 
-// Monta a URL automaticamente usando o seu Project ID
-const supabaseUrl = `https://${projectId}.supabase.co`;
+// O Vite exige o prefixo VITE_ para expor variáveis ao código do cliente
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Cria e exporta o cliente para ser usado nos Contextos
-export const supabase = createClient(supabaseUrl, publicAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

@@ -1,9 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../../utils/supabase/supabaseClient";
 import { UsuarioLogado } from "../types/index";
-import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 
-const supabaseUrl = `https://${projectId}.supabase.co`;
+// Variáveis de ambiente configuradas no seu ficheiro .env.local
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const publicAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const DOMINIO_SISTEMA = "@ferramentaria.local";
 
 export const authService = {
@@ -23,10 +24,13 @@ export const authService = {
     role: string,
   ) {
     const emailFake = `${matricula}${DOMINIO_SISTEMA}`;
-    // Cliente temporário para não persistir sessão e não deslogar o admin
+
+    // Utiliza o createClient com as variáveis de ambiente para o registo
+    // Isso evita que a sessão do administrador seja encerrada ao criar novos utilizadores
     const tempClient = createClient(supabaseUrl, publicAnonKey, {
       auth: { persistSession: false },
     });
+
     const { error } = await tempClient.auth.signUp({
       email: emailFake,
       password: senha,
